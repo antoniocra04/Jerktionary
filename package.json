@@ -98,8 +98,8 @@
     },
     "linux": {
       "target": [
-        "deb",
-        "tar.gz"
+        "tar.gz",
+        "zip"
       ],
       "category": "Utility"
     },
