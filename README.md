@@ -35,6 +35,33 @@ VITE_BACKEND_WS_URL=ws://127.0.0.1:8000/ws/audio
 VITE_BACKEND_SWAGGER_URL=http://127.0.0.1:8000/docs
 ```
 
+## Model Providers
+
+Open settings in the app to switch each model path independently:
+
+```text
+Whisper transcription: Local or API key
+LLM answers:           Local or API key
+```
+
+When Whisper is set to `API key`, the frontend connects to `/ws/audio` with:
+
+```text
+whisper_provider=api
+whisper_api_key=<key>
+```
+
+When LLM answers are set to `API key`, explanation and answer requests include:
+
+```json
+{
+  "llm": {
+    "provider": "api",
+    "api_key": "<key>"
+  }
+}
+```
+
 ## Swagger
 
 Open Swagger at:

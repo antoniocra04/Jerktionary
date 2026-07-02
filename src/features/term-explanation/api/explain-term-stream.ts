@@ -1,5 +1,8 @@
 import { HttpError } from "@/shared/api/http-client";
-import { getBackendHttpUrl } from "@/features/settings/store/settings-store";
+import {
+  getBackendHttpUrl,
+  getBackendModelSettings
+} from "@/features/settings/store/settings-store";
 import type { TermExplanation } from "@/shared/types/term";
 
 type StreamSnapshotDto = {
@@ -7,7 +10,7 @@ type StreamSnapshotDto = {
   short?: string;
   example?: string;
   why_important?: string;
-  source?: "cache" | "local_llm";
+  source?: "cache" | "local_llm" | "api_llm";
   done?: boolean;
   error?: string;
 };
@@ -28,7 +31,11 @@ export async function explainTermStream(
     response = await fetch(`${getBackendHttpUrl()}/api/terms/explain/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: JSON.stringify({ term, context: context.slice(0, 2000) }),
+      body: JSON.stringify({
+        term,
+        context: context.slice(0, 2000),
+        llm: getBackendModelSettings().llm
+      }),
       signal
     });
   } catch (error) {

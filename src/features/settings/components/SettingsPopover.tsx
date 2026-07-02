@@ -1,11 +1,12 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mic, Volume2 } from "lucide-react";
+import { Cpu, KeyRound, Mic, Volume2 } from "lucide-react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { useState } from "react";
 import {
   DEFAULT_DISPLAY_NAME,
   type AudioSource,
+  type ModelProvider,
   useSettingsStore
 } from "@/features/settings/store/settings-store";
 import { cn } from "@/shared/utils/cn";
@@ -15,17 +16,30 @@ export function SettingsPopover({ children }: PropsWithChildren) {
   const backendHttpUrl = useSettingsStore((state) => state.backendHttpUrl);
   const displayName = useSettingsStore((state) => state.displayName);
   const audioSource = useSettingsStore((state) => state.audioSource);
+  const whisperProvider = useSettingsStore((state) => state.whisperProvider);
+  const whisperApiKey = useSettingsStore((state) => state.whisperApiKey);
+  const llmProvider = useSettingsStore((state) => state.llmProvider);
+  const llmApiKey = useSettingsStore((state) => state.llmApiKey);
   const queryClient = useQueryClient();
 
   const [url, setUrl] = useState(backendHttpUrl);
   const [name, setName] = useState(displayName);
   const [source, setSource] = useState<AudioSource>(audioSource);
+  const [transcriptionProvider, setTranscriptionProvider] =
+    useState<ModelProvider>(whisperProvider);
+  const [transcriptionKey, setTranscriptionKey] = useState(whisperApiKey);
+  const [languageProvider, setLanguageProvider] = useState<ModelProvider>(llmProvider);
+  const [languageKey, setLanguageKey] = useState(llmApiKey);
 
   const onOpenChange = (next: boolean) => {
     if (next) {
       setUrl(backendHttpUrl);
       setName(displayName);
       setSource(audioSource);
+      setTranscriptionProvider(whisperProvider);
+      setTranscriptionKey(whisperApiKey);
+      setLanguageProvider(llmProvider);
+      setLanguageKey(llmApiKey);
     }
     setOpen(next);
   };
@@ -34,8 +48,16 @@ export function SettingsPopover({ children }: PropsWithChildren) {
     useSettingsStore.getState().setBackendHttpUrl(url);
     useSettingsStore.getState().setDisplayName(name);
     useSettingsStore.getState().setAudioSource(source);
+    useSettingsStore.getState().setModelSettings({
+      whisperProvider: transcriptionProvider,
+      whisperApiKey: transcriptionKey,
+      llmProvider: languageProvider,
+      llmApiKey: languageKey
+    });
     void window.desktopAPI?.setWindowTitle(name.trim() || DEFAULT_DISPLAY_NAME);
     void queryClient.invalidateQueries({ queryKey: ["backend"] });
+    void queryClient.invalidateQueries({ queryKey: ["term-explanation"] });
+    void queryClient.invalidateQueries({ queryKey: ["live-answer"] });
     setOpen(false);
   };
 
@@ -47,7 +69,7 @@ export function SettingsPopover({ children }: PropsWithChildren) {
           side="bottom"
           align="end"
           sideOffset={8}
-          className="z-50 w-80 rounded-xl border border-white/10 bg-surface-900 p-4 shadow-popover outline-none"
+          className="z-50 max-h-[calc(100vh-5rem)] w-[28rem] max-w-[calc(100vw-2rem)] overflow-auto rounded-xl border border-white/10 bg-surface-900 p-4 shadow-popover outline-none"
         >
           <h3 className="text-sm font-medium text-slate-100">Настройки</h3>
 
@@ -103,6 +125,26 @@ export function SettingsPopover({ children }: PropsWithChildren) {
             </span>
           </label>
 
+          <ModelProviderField
+            className="mt-4"
+            title="Whisper transcription"
+            provider={transcriptionProvider}
+            apiKey={transcriptionKey}
+            apiKeyPlaceholder="Whisper API key"
+            onProviderChange={setTranscriptionProvider}
+            onApiKeyChange={setTranscriptionKey}
+          />
+
+          <ModelProviderField
+            className="mt-4"
+            title="LLM answers"
+            provider={languageProvider}
+            apiKey={languageKey}
+            apiKeyPlaceholder="LLM API key"
+            onProviderChange={setLanguageProvider}
+            onApiKeyChange={setLanguageKey}
+          />
+
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
@@ -142,7 +184,90 @@ function AudioSourceButton({
       onClick={onClick}
       className={cn(
         "inline-flex min-h-8 items-center justify-center gap-2 rounded px-2 text-xs font-medium transition",
-        active ? "bg-accent-500 text-slate-950" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+        active
+          ? "bg-accent-500 text-slate-950"
+          : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function ModelProviderField({
+  className,
+  title,
+  provider,
+  apiKey,
+  apiKeyPlaceholder,
+  onProviderChange,
+  onApiKeyChange
+}: {
+  className?: string;
+  title: string;
+  provider: ModelProvider;
+  apiKey: string;
+  apiKeyPlaceholder: string;
+  onProviderChange: (provider: ModelProvider) => void;
+  onApiKeyChange: (value: string) => void;
+}) {
+  return (
+    <div className={className}>
+      <span className="text-xs text-slate-400">{title}</span>
+      <div className="mt-2 grid grid-cols-2 rounded-md border border-white/10 bg-surface-800 p-1">
+        <ProviderButton
+          active={provider === "local"}
+          icon={<Cpu className="h-4 w-4" />}
+          label="Local"
+          onClick={() => onProviderChange("local")}
+        />
+        <ProviderButton
+          active={provider === "api"}
+          icon={<KeyRound className="h-4 w-4" />}
+          label="API key"
+          onClick={() => onProviderChange("api")}
+        />
+      </div>
+      {provider === "api" && (
+        <input
+          type="password"
+          value={apiKey}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          onChange={(event) => onApiKeyChange(event.target.value)}
+          placeholder={apiKeyPlaceholder}
+          className="mt-2 w-full rounded-md border border-white/10 bg-surface-800 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-accent-500/60"
+        />
+      )}
+      <span className="mt-1 block text-[11px] leading-4 text-slate-600">
+        Local uses the backend model. API key sends this key to the backend for model calls.
+      </span>
+    </div>
+  );
+}
+
+function ProviderButton({
+  active,
+  icon,
+  label,
+  onClick
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex min-h-8 items-center justify-center gap-2 rounded px-2 text-xs font-medium transition",
+        active
+          ? "bg-accent-500 text-slate-950"
+          : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
       )}
     >
       {icon}

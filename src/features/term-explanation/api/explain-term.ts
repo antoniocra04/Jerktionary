@@ -1,9 +1,14 @@
 import { requestJson } from "@/shared/api/http-client";
+import {
+  getBackendModelSettings,
+  type ModelApiSettings
+} from "@/features/settings/store/settings-store";
 import type { TermExplanation } from "@/shared/types/term";
 
 type ExplainTermRequestDto = {
   term: string;
   context?: string;
+  llm: ModelApiSettings;
 };
 
 type ExplainTermResponseDto = {
@@ -11,7 +16,7 @@ type ExplainTermResponseDto = {
   short: string;
   example: string;
   why_important: string;
-  source: "cache" | "local_llm";
+  source: "cache" | "local_llm" | "api_llm";
 };
 
 export async function explainTerm(
@@ -25,7 +30,8 @@ export async function explainTerm(
       method: "POST",
       body: {
         term,
-        context: context.slice(0, 2000)
+        context: context.slice(0, 2000),
+        llm: getBackendModelSettings().llm
       },
       signal
     }

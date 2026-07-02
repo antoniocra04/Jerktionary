@@ -9,7 +9,7 @@ export type TranscriptTerm = {
   confidence: number;
 };
 
-export type TermExplanationSource = "cache" | "local_llm";
+export type TermExplanationSource = "cache" | "local_llm" | "api_llm";
 
 export type TermExplanation = {
   title: string;

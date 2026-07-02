@@ -1,5 +1,8 @@
 import { HttpError } from "@/shared/api/http-client";
-import { getBackendHttpUrl } from "@/features/settings/store/settings-store";
+import {
+  getBackendHttpUrl,
+  getBackendModelSettings
+} from "@/features/settings/store/settings-store";
 import type { LiveAnswer } from "@/shared/types/answer";
 
 type AnswerSnapshotDto = {
@@ -33,7 +36,12 @@ export async function answerQuestionStream(
     response = await fetch(`${getBackendHttpUrl()}/api/answer/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: JSON.stringify({ question, context: context.slice(0, 2000), deep }),
+      body: JSON.stringify({
+        question,
+        context: context.slice(0, 2000),
+        deep,
+        llm: getBackendModelSettings().llm
+      }),
       signal
     });
   } catch (error) {
