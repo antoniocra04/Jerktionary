@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+release/
+dist/
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# Logs and local agent state
+*.log
+.agents/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
