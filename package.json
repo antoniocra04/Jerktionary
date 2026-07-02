@@ -1,9 +1,31 @@
 {
   "name": "jerktionary-desktop",
   "version": "0.1.0",
-  "private": true,
+  "description": "Electron desktop frontend for realtime speech transcription, term extraction, and interview-style answers.",
+  "license": "MIT",
+  "author": "antoniocra04",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/antoniocra04/Jerktionary.git"
+  },
+  "bugs": {
+    "url": "https://github.com/antoniocra04/Jerktionary/issues"
+  },
+  "homepage": "https://github.com/antoniocra04/Jerktionary#readme",
+  "keywords": [
+    "electron",
+    "react",
+    "transcription",
+    "whisper",
+    "llm",
+    "desktop"
+  ],
   "type": "module",
   "main": "out/main/index.js",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "dev": "electron-vite -c electron.vite.config.ts dev",
     "build": "tsc --noEmit && electron-vite -c electron.vite.config.ts build",
