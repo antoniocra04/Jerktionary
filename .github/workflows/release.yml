@@ -70,6 +70,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          overwrite_files: true
           files: |
             release/*.exe
             release/*.AppImage
