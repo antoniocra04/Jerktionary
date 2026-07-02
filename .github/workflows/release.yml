@@ -58,8 +58,8 @@ jobs:
           name: Jerktionary-${{ matrix.platform }}
           path: |
             release/*.exe
-            release/*.AppImage
             release/*.deb
+            release/*.tar.gz
             release/*.dmg
             release/*.zip
 
@@ -73,7 +73,7 @@ jobs:
           overwrite_files: true
           files: |
             release/*.exe
-            release/*.AppImage
             release/*.deb
+            release/*.tar.gz
             release/*.dmg
             release/*.zip
