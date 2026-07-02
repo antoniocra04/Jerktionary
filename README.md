@@ -51,7 +51,15 @@ The app also has an `Open Swagger` button on the backend unavailable screen.
 npm run build
 ```
 
-The Electron production build is configured through `electron-builder`.
+Package installers/bundles for each desktop OS:
+
+```bash
+npm run build:win
+npm run build:linux
+npm run build:mac
+```
+
+Artifacts are written to `release/`. macOS packaging should be run on macOS when signing or notarization is required.
 
 ## Microphone Check
 
