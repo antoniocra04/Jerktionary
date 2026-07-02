@@ -21,7 +21,7 @@ jobs:
             runner: windows-latest
             builder_args: --win
           - platform: linux
-            runner: ubuntu-latest
+            runner: ubuntu-22.04
             builder_args: --linux
           - platform: macos
             runner: macos-latest
@@ -42,6 +42,10 @@ jobs:
 
       - name: Build app
         run: npm run build
+
+      - name: Install Linux packaging dependencies
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
 
       - name: Package app
         run: npx electron-builder ${{ matrix.builder_args }} --publish never
