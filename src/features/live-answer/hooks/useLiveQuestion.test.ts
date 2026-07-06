@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractLatestQuestion } from "./useLiveQuestion";
+import { extractForcedQuestion, extractLatestQuestion } from "./useLiveQuestion";
 
 describe("extractLatestQuestion", () => {
   it("returns a question-marked sentence", () => {
@@ -23,5 +23,22 @@ describe("extractLatestQuestion", () => {
 
   it("returns null for empty text", () => {
     expect(extractLatestQuestion("")).toBeNull();
+  });
+});
+
+describe("extractForcedQuestion", () => {
+  it("takes the trailing sentences even without a question mark", () => {
+    const text = "Что такое ООП? Понятно. Теперь про архитектуру. Опиши свой последний проект.";
+    expect(extractForcedQuestion(text)).toBe(
+      "Теперь про архитектуру. Опиши свой последний проект"
+    );
+  });
+
+  it("works for a single sentence", () => {
+    expect(extractForcedQuestion("Расскажи про индексы")).toBe("Расскажи про индексы");
+  });
+
+  it("returns null for empty text", () => {
+    expect(extractForcedQuestion("  ")).toBeNull();
   });
 });

@@ -16,8 +16,8 @@ export function AudioLevelMeter({ level, active }: AudioLevelMeterProps) {
           <span
             key={index}
             className={cn(
-              "h-2 flex-1 rounded-sm bg-slate-700 transition-colors",
-              isLit && "bg-accent-400"
+              "h-2 flex-1 rounded-sm bg-ink-900/10 transition-colors",
+              isLit && "bg-accent-500"
             )}
           />
         );

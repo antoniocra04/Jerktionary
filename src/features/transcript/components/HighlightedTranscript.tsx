@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { TranscriptTerm } from "@/shared/types/term";
 import { buildHighlightSegments } from "@/features/transcript/services/transcript-merger";
 import { TermSpan } from "./TermSpan";
@@ -8,7 +9,7 @@ type HighlightedTranscriptProps = {
 };
 
 export function HighlightedTranscript({ text, terms }: HighlightedTranscriptProps) {
-  const segments = buildHighlightSegments(text, terms);
+  const segments = useMemo(() => buildHighlightSegments(text, terms), [text, terms]);
 
   return (
     <>

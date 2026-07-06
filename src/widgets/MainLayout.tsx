@@ -7,7 +7,7 @@ type MainLayoutProps = PropsWithChildren<{
 
 export function MainLayout({ header, sidebar, children }: MainLayoutProps) {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-surface-950 text-slate-100">
+    <div className="flex h-screen flex-col overflow-hidden bg-surface-950 text-ink-900">
       {header}
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1 overflow-auto p-5">{children}</main>

@@ -10,7 +10,7 @@ type TermSpanProps = {
 export function TermSpan({ term, text, context }: TermSpanProps) {
   return (
     <TermPopover term={term} context={context}>
-      <span className="rounded bg-accent-400/15 px-1 py-0.5 text-accent-100 ring-1 ring-accent-400/20 transition hover:bg-accent-400/25">
+      <span className="rounded bg-accent-500/10 px-1 py-0.5 text-accent-300 ring-1 ring-accent-500/25 transition hover:bg-accent-500/20">
         {text}
       </span>
     </TermPopover>

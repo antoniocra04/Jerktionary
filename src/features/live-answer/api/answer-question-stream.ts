@@ -1,8 +1,10 @@
 import { HttpError } from "@/shared/api/http-client";
 import {
   getBackendHttpUrl,
-  getBackendModelSettings
+  getBackendModelSettings,
+  useSettingsStore
 } from "@/features/settings/store/settings-store";
+import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
 import type { LiveAnswer } from "@/shared/types/answer";
 
 type AnswerSnapshotDto = {
@@ -38,8 +40,11 @@ export async function answerQuestionStream(
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
       body: JSON.stringify({
         question,
-        context: context.slice(0, 2000),
+        // The transcript grows from the start: the relevant conversation is the tail.
+        context: context.slice(-2000),
         deep,
+        profile: useSettingsStore.getState().aboutMe.slice(0, 1000),
+        meeting_context: useTranscriptStore.getState().meetingContext.slice(0, 2000),
         llm: getBackendModelSettings().llm
       }),
       signal

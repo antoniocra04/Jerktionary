@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { getBackendWsUrl } from "@/features/settings/store/settings-store";
+import { getAsrWsHello, getBackendWsUrl } from "@/features/settings/store/settings-store";
 import type { BackendWsEvent } from "@/shared/types/transcript";
 import { mergeTerms } from "@/features/transcript/services/transcript-merger";
 import { TranscriptWsClient } from "@/features/transcript/services/transcript-ws-client";
@@ -23,11 +23,15 @@ export function useTranscriptSocket() {
     }
 
     if (event.type === "error") {
-      const message =
-        event.code === "INVALID_AUDIO_CHUNK"
-          ? "Backend отклонил audio chunk: ожидается binary PCM 16 kHz mono int16"
-          : `Backend WebSocket error: ${event.code}`;
-      store.setWebsocketError(message);
+      const messages: Record<string, string> = {
+        INVALID_AUDIO_CHUNK: "Backend отклонил audio chunk: ожидается binary PCM 16 kHz mono int16",
+        ASR_UNAVAILABLE:
+          "Локальный Whisper выключен на backend. Выберите API-провайдера распознавания в настройках.",
+        ASR_API_ERROR:
+          "API-провайдер распознавания отклонил запрос: проверьте ключ и модель в настройках.",
+        INVALID_CONFIG: "Backend не принял конфигурацию распознавания."
+      };
+      store.setWebsocketError(messages[event.code] ?? `Backend WebSocket error: ${event.code}`);
     }
   }, []);
 
@@ -38,6 +42,7 @@ export function useTranscriptSocket() {
       onEvent: handleEvent,
       onStatus: useTranscriptStore.getState().setConnectionStatus,
       onError: useTranscriptStore.getState().setWebsocketError,
+      buildHelloMessage: getAsrWsHello,
       reconnect: true
     });
     clientRef.current = client;

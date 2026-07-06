@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { DesktopApi } from "./api";
+import type { DesktopApi, MeetingRecord } from "./api";
+
+function subscribe(channel: string, listener: () => void): () => void {
+  const handler = () => listener();
+  ipcRenderer.on(channel, handler);
+  return () => {
+    ipcRenderer.removeListener(channel, handler);
+  };
+}
 
 const api: DesktopApi = {
   getAppVersion: () => ipcRenderer.invoke("app:getVersion"),
@@ -7,7 +15,13 @@ const api: DesktopApi = {
   openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
   setContentProtection: (enabled: boolean) =>
     ipcRenderer.invoke("window:setContentProtection", enabled),
-  setWindowTitle: (title: string) => ipcRenderer.invoke("window:setTitle", title)
+  setWindowTitle: (title: string) => ipcRenderer.invoke("window:setTitle", title),
+  setOverlayMode: (enabled: boolean) => ipcRenderer.invoke("window:setOverlayMode", enabled),
+  onAnswerNow: (listener) => subscribe("hotkey:answer-now", listener),
+  onToggleOverlay: (listener) => subscribe("hotkey:toggle-overlay", listener),
+  listMeetings: () => ipcRenderer.invoke("meetings:list"),
+  saveMeeting: (record: MeetingRecord) => ipcRenderer.invoke("meetings:save", record),
+  deleteMeeting: (id: string) => ipcRenderer.invoke("meetings:delete", id)
 };
 
 if (process.contextIsolated) {

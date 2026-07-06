@@ -16,8 +16,8 @@ export function MicrophoneButton({ listening, disabled, onClick }: MicrophoneBut
       className={cn(
         "inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium transition",
         listening
-          ? "bg-red-500/15 text-red-100 hover:bg-red-500/25"
-          : "bg-accent-500 text-slate-950 hover:bg-accent-400",
+          ? "bg-red-100 text-red-700 hover:bg-red-200"
+          : "bg-accent-500 text-white hover:bg-accent-400",
         disabled && "cursor-not-allowed opacity-50"
       )}
     >

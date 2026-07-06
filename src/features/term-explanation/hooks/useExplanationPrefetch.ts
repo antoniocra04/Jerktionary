@@ -2,9 +2,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import type { TranscriptTerm } from "@/shared/types/term";
 import { explainTerm } from "@/features/term-explanation/api/explain-term";
+import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
 
 const MAX_PREFETCH_TERMS = 12;
 const PREFETCH_GAP_MS = 300;
+const ANSWER_BUSY_WAIT_MS = 400;
 
 const explanationQueryKey = (term: string) => ["term-explanation", term] as const;
 
@@ -31,6 +33,13 @@ export function useExplanationPrefetch(terms: TranscriptTerm[], context: string)
     runningRef.current = true;
     try {
       while (queueRef.current.length > 0) {
+        // The live answer has priority on the single local LLM — hold prefetches
+        // (which also hit it) while an answer is streaming.
+        if (useTranscriptStore.getState().answerStreaming > 0) {
+          await new Promise((resolve) => setTimeout(resolve, ANSWER_BUSY_WAIT_MS));
+          continue;
+        }
+
         const key = queueRef.current.shift();
         if (!key || queryClient.getQueryData(explanationQueryKey(key))) {
           continue;

@@ -45,14 +45,15 @@ export function LiveAnswer({ questions, context }: LiveAnswerProps) {
 
   if (total === 0) {
     return (
-      <section className="rounded-xl border border-white/10 bg-surface-900 px-6 py-8">
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+      <section className="rounded-xl border border-line bg-surface-900 px-6 py-8">
+        <div className="flex items-center gap-2 text-sm text-ink-600">
           <Sparkles className="h-4 w-4 text-accent-400" />
           Живой ответ
         </div>
-        <p className="mt-2 max-w-lg text-sm leading-6 text-slate-500">
+        <p className="mt-2 max-w-lg text-sm leading-6 text-ink-500">
           Задайте вопрос вслух — «что такое…», «как…», «почему…» — и ответ для проговаривания
-          появится здесь. Прошлые ответы переключаются стрелками.
+          появится здесь. Прошлые ответы переключаются стрелками, Ctrl+Shift+Space отвечает на
+          последнюю фразу.
         </p>
       </section>
     );
@@ -65,16 +66,16 @@ export function LiveAnswer({ questions, context }: LiveAnswerProps) {
       <AnswerCard key={question} question={question} context={context} latest={index === 0} />
 
       {total > 1 && (
-        <div className="flex items-center justify-between px-1 text-xs text-slate-500">
+        <div className="flex items-center justify-between px-1 text-xs text-ink-500">
           <span>{index === 0 ? "последний вопрос" : `${total - index} из ${total}`}</span>
           <div className="flex items-center gap-1">
-            <span className="mr-2 hidden text-slate-600 sm:inline">← → переключение</span>
+            <span className="mr-2 hidden text-ink-400 sm:inline">← → переключение</span>
             <button
               type="button"
               aria-label="Более старый вопрос"
               onClick={() => setNav({ head, index: Math.min(index + 1, total - 1) })}
               disabled={index >= total - 1}
-              className="rounded p-1 hover:bg-white/5 disabled:pointer-events-none disabled:opacity-30"
+              className="rounded p-1 hover:bg-ink-900/5 disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -83,7 +84,7 @@ export function LiveAnswer({ questions, context }: LiveAnswerProps) {
               aria-label="Более новый вопрос"
               onClick={() => setNav({ head, index: Math.max(index - 1, 0) })}
               disabled={index <= 0}
-              className="rounded p-1 hover:bg-white/5 disabled:pointer-events-none disabled:opacity-30"
+              className="rounded p-1 hover:bg-ink-900/5 disabled:pointer-events-none disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

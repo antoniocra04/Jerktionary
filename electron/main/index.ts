@@ -1,8 +1,25 @@
-import { app, BrowserWindow, desktopCapturer, ipcMain, session, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  desktopCapturer,
+  globalShortcut,
+  ipcMain,
+  session,
+  shell,
+  type Rectangle
+} from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
+import { deleteMeeting, listMeetings, saveMeeting } from "./meetings-store";
 import { createMainWindow } from "./window";
+import type { MeetingRecord } from "../preload/api";
 
 let mainWindow: BrowserWindow | null = null;
+
+// Bounds/minimum-size to restore when leaving the compact overlay mode.
+let overlayRestore: { bounds: Rectangle; minimumSize: [number, number] } | null = null;
+
+const OVERLAY_SIZE = { width: 460, height: 320 } as const;
+const OVERLAY_MIN_SIZE = [360, 220] as const;
 
 // Default name shown by the OS (Task Manager apps view, menus). The user can
 // override the window title at runtime from settings.
@@ -26,6 +43,28 @@ ipcMain.handle("window:setTitle", (_, title: string) => {
     mainWindow?.setTitle(value);
   }
 });
+ipcMain.handle("window:setOverlayMode", (_, enabled: boolean) => {
+  const window = mainWindow;
+  if (!window) {
+    return;
+  }
+  if (enabled && overlayRestore === null) {
+    overlayRestore = { bounds: window.getBounds(), minimumSize: [1024, 680] };
+    window.setMinimumSize(OVERLAY_MIN_SIZE[0], OVERLAY_MIN_SIZE[1]);
+    const { x, y } = window.getBounds();
+    window.setBounds({ x, y, ...OVERLAY_SIZE });
+    // "screen-saver" keeps the card above full-screen call windows too.
+    window.setAlwaysOnTop(true, "screen-saver");
+  } else if (!enabled && overlayRestore !== null) {
+    window.setAlwaysOnTop(false);
+    window.setMinimumSize(...overlayRestore.minimumSize);
+    window.setBounds(overlayRestore.bounds);
+    overlayRestore = null;
+  }
+});
+ipcMain.handle("meetings:list", () => listMeetings());
+ipcMain.handle("meetings:save", (_, record: MeetingRecord) => saveMeeting(record));
+ipcMain.handle("meetings:delete", (_, id: string) => deleteMeeting(id));
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("local.jerktionary.desktop");
@@ -50,11 +89,24 @@ app.whenReady().then(() => {
 
   mainWindow = createMainWindow();
 
+  // Global so they work while a call app is focused: force-answer the last
+  // spoken sentence, and flip the compact always-on-top overlay.
+  globalShortcut.register("Control+Shift+Space", () => {
+    mainWindow?.webContents.send("hotkey:answer-now");
+  });
+  globalShortcut.register("Control+Shift+O", () => {
+    mainWindow?.webContents.send("hotkey:toggle-overlay");
+  });
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createMainWindow();
     }
   });
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on("web-contents-created", (_, contents) => {

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { LiveAnswer } from "@/shared/types/answer";
 import type { BackendComponent } from "@/shared/types/backend";
 import type { TranscriptEvent, WsConnectionStatus } from "@/shared/types/transcript";
 import type { TermExplanation, TranscriptTerm } from "@/shared/types/term";
@@ -7,6 +8,11 @@ export type LastExplanation = {
   term: string;
   explanation: TermExplanation;
   loadedAt: number;
+};
+
+export type SessionAnswer = {
+  question: string;
+  answer: LiveAnswer;
 };
 
 type TranscriptState = {
@@ -20,10 +26,20 @@ type TranscriptState = {
   backendComponents: BackendComponent[];
   lastExplanations: LastExplanation[];
   answeredQuestions: string[];
+  answerStreaming: number;
+  /** Free-form context of the current meeting; a new meeting starts fresh. */
+  meetingContext: string;
+  /** Completed answers of the current meeting, in the order questions arrived. */
+  sessionAnswers: SessionAnswer[];
+  meetingStartedAt: number | null;
   microphoneError: string | null;
   websocketError: string | null;
   setTranscript: (text: string, terms: TranscriptTerm[]) => void;
   pushQuestion: (question: string) => void;
+  setMeetingContext: (context: string) => void;
+  recordAnswer: (question: string, answer: LiveAnswer) => void;
+  beginAnswerStreaming: () => void;
+  endAnswerStreaming: () => void;
   setTerms: (terms: TranscriptTerm[]) => void;
   setConnectionStatus: (status: WsConnectionStatus) => void;
   setListening: (isListening: boolean) => void;
@@ -47,14 +63,37 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   backendComponents: [],
   lastExplanations: [],
   answeredQuestions: [],
+  answerStreaming: 0,
+  meetingContext: "",
+  sessionAnswers: [],
+  meetingStartedAt: null,
   microphoneError: null,
   websocketError: null,
   setTranscript: (currentText, terms) => set({ currentText, terms }),
+  setMeetingContext: (meetingContext) => set({ meetingContext }),
+  recordAnswer: (question, answer) =>
+    set((state) => {
+      const existing = state.sessionAnswers.findIndex((item) => item.question === question);
+      if (existing >= 0) {
+        const sessionAnswers = [...state.sessionAnswers];
+        sessionAnswers[existing] = { question, answer };
+        return { sessionAnswers };
+      }
+      return { sessionAnswers: [...state.sessionAnswers, { question, answer }] };
+    }),
+  beginAnswerStreaming: () => set((state) => ({ answerStreaming: state.answerStreaming + 1 })),
+  endAnswerStreaming: () =>
+    set((state) => ({ answerStreaming: Math.max(0, state.answerStreaming - 1) })),
   pushQuestion: (question) =>
     set((state) => {
       const key = question.trim().toLowerCase();
-      const rest = state.answeredQuestions.filter((item) => item.trim().toLowerCase() !== key);
-      return { answeredQuestions: [question, ...rest].slice(0, 8) };
+      // The question detector regularly re-finds an older question (the last "?"
+      // sentence stays in the transcript). Re-ordering here would remount the
+      // answer card and restart generation, so known questions keep their slot.
+      if (state.answeredQuestions.some((item) => item.trim().toLowerCase() === key)) {
+        return state;
+      }
+      return { answeredQuestions: [question, ...state.answeredQuestions].slice(0, 8) };
     }),
   setTerms: (terms) => set({ terms }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
@@ -76,11 +115,15 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   setMicrophoneError: (microphoneError) => set({ microphoneError }),
   setWebsocketError: (websocketError) => set({ websocketError }),
   resetSession: () =>
+    // meetingContext survives on purpose: the user fills it in before pressing
+    // "Слушать", and resetSession runs exactly at that moment.
     set({
       currentText: "",
       terms: [],
       lastEvents: [],
       answeredQuestions: [],
+      sessionAnswers: [],
+      meetingStartedAt: Date.now(),
       microphoneLevel: 0,
       websocketError: null,
       microphoneError: null

@@ -4,6 +4,7 @@ import {
   type ModelApiSettings
 } from "@/features/settings/store/settings-store";
 import type { TermExplanation } from "@/shared/types/term";
+import { termContext } from "@/shared/utils/context-slice";
 
 type ExplainTermRequestDto = {
   term: string;
@@ -30,7 +31,7 @@ export async function explainTerm(
       method: "POST",
       body: {
         term,
-        context: context.slice(0, 2000),
+        context: termContext(context, term, 2000),
         llm: getBackendModelSettings().llm
       },
       signal

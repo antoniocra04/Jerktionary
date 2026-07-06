@@ -13,7 +13,11 @@ export class AudioCaptureService {
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private monitorGain: GainNode | null = null;
 
-  async start(callbacks: AudioCaptureCallbacks, source: AudioSource): Promise<void> {
+  async start(
+    callbacks: AudioCaptureCallbacks,
+    source: AudioSource,
+    inputDeviceId = ""
+  ): Promise<void> {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("Браузерный API микрофона недоступен");
     }
@@ -24,7 +28,9 @@ export class AudioCaptureService {
     }
 
     this.stream =
-      source === "system" ? await this.captureSystemAudio() : await this.captureMicrophone();
+      source === "system"
+        ? await this.captureSystemAudio()
+        : await this.captureMicrophone(inputDeviceId);
 
     this.context = new AudioContextCtor();
     await this.context.audioWorklet.addModule(
@@ -51,9 +57,12 @@ export class AudioCaptureService {
     this.monitorGain.connect(this.context.destination);
   }
 
-  private async captureMicrophone(): Promise<MediaStream> {
+  private async captureMicrophone(inputDeviceId: string): Promise<MediaStream> {
     return navigator.mediaDevices.getUserMedia({
       audio: {
+        // "ideal" (not "exact") so a stale saved deviceId (unplugged mic) falls
+        // back to the system default instead of failing the whole capture.
+        ...(inputDeviceId ? { deviceId: { ideal: inputDeviceId } } : {}),
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,

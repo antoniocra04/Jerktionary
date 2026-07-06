@@ -20,9 +20,9 @@ export function BackendStatusBadge({ ready, unavailable, loading }: BackendStatu
     <div
       className={cn(
         "inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm",
-        ready && "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-        unavailable && "border-red-500/30 bg-red-500/10 text-red-200",
-        !ready && !unavailable && "border-amber-500/30 bg-amber-500/10 text-amber-100"
+        ready && "border-emerald-300 bg-emerald-50 text-emerald-800",
+        unavailable && "border-red-300 bg-red-50 text-red-800",
+        !ready && !unavailable && "border-amber-300 bg-amber-50 text-amber-800"
       )}
     >
       <Server className="h-4 w-4" />

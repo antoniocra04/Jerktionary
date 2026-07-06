@@ -4,6 +4,7 @@ import {
   getBackendModelSettings
 } from "@/features/settings/store/settings-store";
 import type { TermExplanation } from "@/shared/types/term";
+import { termContext } from "@/shared/utils/context-slice";
 
 type StreamSnapshotDto = {
   title?: string;
@@ -33,7 +34,7 @@ export async function explainTermStream(
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
       body: JSON.stringify({
         term,
-        context: context.slice(0, 2000),
+        context: termContext(context, term, 2000),
         llm: getBackendModelSettings().llm
       }),
       signal

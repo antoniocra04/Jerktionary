@@ -6,6 +6,8 @@ type TranscriptWsClientOptions = {
   onEvent: (event: BackendWsEvent) => void;
   onStatus: (status: WsConnectionStatus) => void;
   onError: (message: string) => void;
+  /** Config message sent right after the socket opens, before any audio bytes. */
+  buildHelloMessage?: () => string | null;
   reconnect?: boolean;
 };
 
@@ -30,6 +32,10 @@ export class TranscriptWsClient {
 
     this.socket.onopen = () => {
       this.reconnectAttempt = 0;
+      const hello = this.options.buildHelloMessage?.();
+      if (hello) {
+        this.socket?.send(hello);
+      }
       this.options.onStatus("connected");
     };
 

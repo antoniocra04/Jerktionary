@@ -10,7 +10,7 @@ export function useMicrophoneStream(onChunk: (chunk: ArrayBuffer) => void) {
     const store = useTranscriptStore.getState();
     store.setMicrophoneError(null);
     serviceRef.current = new AudioCaptureService();
-    const source = useSettingsStore.getState().audioSource;
+    const { audioSource, audioInputDeviceId } = useSettingsStore.getState();
 
     try {
       await serviceRef.current.start(
@@ -18,7 +18,8 @@ export function useMicrophoneStream(onChunk: (chunk: ArrayBuffer) => void) {
           onChunk,
           onLevel: store.setMicrophoneLevel
         },
-        source
+        audioSource,
+        audioInputDeviceId
       );
     } catch (error) {
       serviceRef.current = null;

@@ -8,7 +8,7 @@ export function createMainWindow(): BrowserWindow {
     height: 820,
     minWidth: 1024,
     minHeight: 680,
-    backgroundColor: "#0e1116",
+    backgroundColor: "#f2ede3",
     title: "Jerktionary",
     show: false,
     skipTaskbar: true,
