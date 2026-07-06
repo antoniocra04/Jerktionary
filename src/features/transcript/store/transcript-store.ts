@@ -10,6 +10,30 @@ export type LastExplanation = {
   loadedAt: number;
 };
 
+// Filler words Whisper frequently prepends mid-sentence ("А что такое...",
+// "Ну как..."). Stripping the leading one collapses these paraphrases onto the
+// canonical question so a re-decode no longer spawns a duplicate answer card.
+const FILLER_WORD_RE = /^(?:а|ну|итак|так|вот|значит|короче)\s+/i;
+
+/** Canonical key for comparing questions: lowercase, drop punctuation, collapse
+ * spaces, and strip a leading filler word. The store is the single dedup point —
+ * useLiveQuestion keeps its own lighter key for its local "current" tracking, but
+ * everything that lands here is filtered by this canonical form so Whisper re-decodes
+ * ("Что такое X?" → "А что такое X?") don't create duplicate answers. */
+function questionKey(question: string): string {
+  const normalized = question
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Loop in case two fillers stack ("ну а что...").
+  let stripped = normalized;
+  for (let i = 0; i < 2 && FILLER_WORD_RE.test(stripped); i += 1) {
+    stripped = stripped.replace(FILLER_WORD_RE, "");
+  }
+  return stripped.trim();
+}
+
 export type SessionAnswer = {
   question: string;
   answer: LiveAnswer;
@@ -86,11 +110,14 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
     set((state) => ({ answerStreaming: Math.max(0, state.answerStreaming - 1) })),
   pushQuestion: (question) =>
     set((state) => {
-      const key = question.trim().toLowerCase();
+      const key = questionKey(question);
       // The question detector regularly re-finds an older question (the last "?"
-      // sentence stays in the transcript). Re-ordering here would remount the
-      // answer card and restart generation, so known questions keep their slot.
-      if (state.answeredQuestions.some((item) => item.trim().toLowerCase() === key)) {
+      // sentence stays in the transcript) and Whisper keeps re-decoding the live
+      // tail into slightly different paraphrases ("Что такое X?" → "А что такое X?").
+      // Comparing by the canonical key collapses those onto one entry, so a known
+      // question keeps its slot and its already-started answer instead of spawning a
+      // duplicate card + a second LLM stream.
+      if (state.answeredQuestions.some((item) => questionKey(item) === key)) {
         return state;
       }
       return { answeredQuestions: [question, ...state.answeredQuestions].slice(0, 8) };

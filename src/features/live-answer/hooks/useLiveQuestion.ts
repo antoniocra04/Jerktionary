@@ -44,7 +44,10 @@ export function extractForcedQuestion(text: string): string | null {
   return forced || null;
 }
 
-/** Loose key for comparing questions, so trivial re-decodes don't look "new". */
+/** Loose key for comparing questions, so trivial re-decodes don't look "new".
+ * Note: the *canonical* dedup (also handling paraphrases like "А что такое X?")
+ * lives in the transcript store's pushQuestion — this lighter key only guards the
+ * hook's own "current" value from re-triggering on token-by-token re-decodes. */
 function questionKey(question: string): string {
   return question
     .toLowerCase()
