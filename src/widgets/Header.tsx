@@ -1,9 +1,10 @@
-import { Eye, EyeOff, PictureInPicture2, Settings } from "lucide-react";
+import { Eye, EyeOff, Moon, PictureInPicture2, Settings, Sun } from "lucide-react";
 import { useState } from "react";
 import { AudioLevelMeter } from "@/features/audio/components/AudioLevelMeter";
 import { MicrophoneButton } from "@/features/audio/components/MicrophoneButton";
 import { MeetingsButton } from "@/features/meetings/components/MeetingsDialog";
 import { SettingsPopover } from "@/features/settings/components/SettingsPopover";
+import { useSettingsStore } from "@/features/settings/store/settings-store";
 import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
 import type { WsConnectionStatus } from "@/shared/types/transcript";
 import { cn } from "@/shared/utils/cn";
@@ -71,6 +72,7 @@ export function Header({
             <Settings className="h-4 w-4" />
           </button>
         </SettingsPopover>
+        <ThemeToggle />
         <StealthToggle />
         <MicrophoneButton listening={listening} disabled={disabled} onClick={onToggleListening} />
       </div>
@@ -110,6 +112,24 @@ function StealthToggle() {
       )}
     >
       {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    </button>
+  );
+}
+
+function ThemeToggle() {
+  const theme = useSettingsStore((s) => s.theme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+  const isDark = theme === "dark";
+
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      title={isDark ? "Светлая тема" : "Тёмная тема"}
+      aria-label={isDark ? "Светлая тема" : "Тёмная тема"}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-line text-ink-500 hover:bg-ink-900/5"
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </button>
   );
 }

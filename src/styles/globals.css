@@ -3,10 +3,46 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  --bg-primary: 242 237 227;
+  --bg-secondary: 251 249 244;
+  --bg-tertiary: 245 240 230;
+  --bg-quaternary: 236 229 214;
+  --ink-primary: 41 34 24;
+  --ink-secondary: 78 69 54;
+  --ink-muted: 95 85 70;
+  --ink-tertiary: 125 114 96;
+  --ink-hint: 165 154 136;
+  --ink-disabled: 199 189 169;
+  --line: 224 215 196;
+  --accent: 182 90 36;
+  --accent-hover: 163 79 31;
+  --accent-subtle: 143 75 30;
+  --accent-deep: 143 67 24;
+  --shadow-popover: 0 16px 44px rgba(88, 66, 38, 0.18);
+
+  color-scheme: light dark;
   font-family: Corbel, Seravek, "Segoe UI", system-ui, sans-serif;
-  background: #f2ede3;
-  color: #292218;
+  background: rgb(var(--bg-primary));
+  color: rgb(var(--ink-primary));
+}
+
+.dark {
+  --bg-primary: 26 26 46;
+  --bg-secondary: 22 33 62;
+  --bg-tertiary: 31 45 71;
+  --bg-quaternary: 42 58 88;
+  --ink-primary: 232 228 223;
+  --ink-secondary: 196 191 183;
+  --ink-muted: 168 162 152;
+  --ink-tertiary: 138 132 122;
+  --ink-hint: 107 101 92;
+  --ink-disabled: 77 72 64;
+  --line: 42 42 74;
+  --accent: 196 106 52;
+  --accent-hover: 176 90 42;
+  --accent-subtle: 154 80 32;
+  --accent-deep: 143 67 24;
+  --shadow-popover: 0 16px 44px rgba(0, 0, 0, 0.35);
 }
 
 * {
@@ -17,7 +53,7 @@ body {
   margin: 0;
   min-width: 360px;
   min-height: 220px;
-  background: #f2ede3;
+  background: rgb(var(--bg-primary));
 }
 
 button,
@@ -28,5 +64,5 @@ select {
 }
 
 ::selection {
-  background: rgba(182, 90, 36, 0.22);
+  background: rgb(var(--accent) / 0.22);
 }

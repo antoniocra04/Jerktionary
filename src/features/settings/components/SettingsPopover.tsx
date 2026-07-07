@@ -7,7 +7,7 @@ import { DEFAULT_DISPLAY_NAME, type AudioSource, useSettingsStore } from "@/feat
 import { cn } from "@/shared/utils/cn";
 
 const inputClass =
-  "mt-1 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink-900 outline-none placeholder:text-ink-400 focus:border-accent-500/60";
+  "mt-1 w-full rounded-md border border-line bg-surface-900 px-3 py-2 text-sm text-ink-900 outline-none placeholder:text-ink-400 focus:border-accent-500/60";
 
 const hintClass = "mt-1 block text-[11px] leading-4 text-ink-400";
 

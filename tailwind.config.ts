@@ -1,8 +1,5 @@
 import type { Config } from "tailwindcss";
 
-// Editorial "paper & ink" light theme: warm cream surfaces, near-black ink text,
-// terracotta accent, serif display type. Deliberately not the dark-purple-gradient
-// look of typical AI apps.
 export default {
   darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -10,25 +7,25 @@ export default {
     extend: {
       colors: {
         surface: {
-          950: "#f2ede3",
-          900: "#fbf9f4",
-          850: "#f5f0e6",
-          800: "#ece5d6"
+          950: "rgb(var(--bg-primary) / <alpha-value>)",
+          900: "rgb(var(--bg-secondary) / <alpha-value>)",
+          850: "rgb(var(--bg-tertiary) / <alpha-value>)",
+          800: "rgb(var(--bg-quaternary) / <alpha-value>)"
         },
         ink: {
-          900: "#292218",
-          700: "#4e4536",
-          600: "#5f5546",
-          500: "#7d7260",
-          400: "#a59a88",
-          300: "#c7bda9"
+          900: "rgb(var(--ink-primary) / <alpha-value>)",
+          700: "rgb(var(--ink-secondary) / <alpha-value>)",
+          600: "rgb(var(--ink-muted) / <alpha-value>)",
+          500: "rgb(var(--ink-tertiary) / <alpha-value>)",
+          400: "rgb(var(--ink-hint) / <alpha-value>)",
+          300: "rgb(var(--ink-disabled) / <alpha-value>)"
         },
-        line: "#e0d7c4",
+        line: "rgb(var(--line) / <alpha-value>)",
         accent: {
-          300: "#8f4b1e",
-          400: "#a34f1f",
-          500: "#b65a24",
-          600: "#8f4318"
+          300: "rgb(var(--accent-subtle) / <alpha-value>)",
+          400: "rgb(var(--accent-hover) / <alpha-value>)",
+          500: "rgb(var(--accent) / <alpha-value>)",
+          600: "rgb(var(--accent-deep) / <alpha-value>)"
         }
       },
       fontFamily: {
@@ -36,7 +33,7 @@ export default {
         display: ["Constantia", "Georgia", "Cambria", "'Times New Roman'", "serif"]
       },
       boxShadow: {
-        popover: "0 16px 44px rgba(88, 66, 38, 0.18)"
+        popover: "var(--shadow-popover)"
       }
     }
   },

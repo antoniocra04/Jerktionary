@@ -11,9 +11,15 @@ const NAME_KEY = "settings.displayName";
 const ABOUT_ME_KEY = "settings.aboutMe";
 const AUDIO_SOURCE_KEY = "settings.audioSource";
 const AUDIO_INPUT_DEVICE_KEY = "settings.audioInputDeviceId";
+const THEME_KEY = "settings.theme";
 
 export const DEFAULT_DISPLAY_NAME = "Jerktionary";
 export type AudioSource = "microphone" | "system";
+export type Theme = "light" | "dark";
+
+function normalizeTheme(value: string): Theme {
+  return value === "dark" ? "dark" : "light";
+}
 
 function normalizeHttpUrl(url: string): string {
   return url.trim().replace(/\/+$/, "");
@@ -48,11 +54,13 @@ type SettingsState = {
   audioSource: AudioSource;
   /** Preferred microphone deviceId; empty string means the system default. */
   audioInputDeviceId: string;
+  theme: Theme;
   setBackendHttpUrl: (url: string) => void;
   setDisplayName: (name: string) => void;
   setAboutMe: (aboutMe: string) => void;
   setAudioSource: (source: AudioSource) => void;
   setAudioInputDeviceId: (deviceId: string) => void;
+  setTheme: (theme: Theme) => void;
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -61,6 +69,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   aboutMe: readInitial(ABOUT_ME_KEY, ""),
   audioSource: readAudioSource(),
   audioInputDeviceId: readInitial(AUDIO_INPUT_DEVICE_KEY, ""),
+  theme: normalizeTheme(readInitial(THEME_KEY, "light")),
   setBackendHttpUrl: (url) => {
     const normalized = normalizeHttpUrl(url) || appConfig.backendHttpUrl;
     writeSetting(HTTP_KEY, normalized);
@@ -83,8 +92,17 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setAudioInputDeviceId: (audioInputDeviceId) => {
     writeSetting(AUDIO_INPUT_DEVICE_KEY, audioInputDeviceId);
     set({ audioInputDeviceId });
+  },
+  setTheme: (theme) => {
+    writeSetting(THEME_KEY, theme);
+    set({ theme });
+    document.documentElement.classList.toggle("dark", theme === "dark");
   }
 }));
+
+if (readInitial(THEME_KEY, "light") === "dark") {
+  document.documentElement.classList.add("dark");
+}
 
 /** Non-reactive accessors for use outside React (fetch/WebSocket clients). */
 export function getBackendHttpUrl(): string {
