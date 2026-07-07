@@ -37,13 +37,6 @@ export function App() {
 
   const canListen = Boolean(backendStatus.ready?.ready) && !backendStatus.isUnavailable;
 
-  const hasCompletedSetup = useSettingsStore((state) => state.hasCompletedSetup);
-  const completeSetup = useSettingsStore((state) => state.completeSetup);
-
-  if (!hasCompletedSetup) {
-    return <SetupWizard onComplete={completeSetup} />;
-  }
-
   // Warm the explanation cache for on-screen terms so hovering is instant.
   useExplanationPrefetch(terms, currentText);
 
@@ -114,6 +107,13 @@ export function App() {
 
     return null;
   }, [backendStatus.isUnavailable, backendStatus.ready]);
+
+  const hasCompletedSetup = useSettingsStore((state) => state.hasCompletedSetup);
+  const completeSetup = useSettingsStore((state) => state.completeSetup);
+
+  if (!hasCompletedSetup) {
+    return <SetupWizard onComplete={completeSetup} />;
+  }
 
   if (overlay) {
     return (

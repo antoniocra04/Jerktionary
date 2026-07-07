@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Mic, Settings, Sparkles, Volume2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Mic, Settings, Sparkles, Volume2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettingsStore, type AudioSource } from "@/features/settings/store/settings-store";
 import { backendApi } from "@/shared/api/backend-api";
@@ -66,7 +66,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="flex h-screen items-center justify-center bg-surface-950 p-6">
-      <div className="w-full max-w-md rounded-xl border border-line bg-surface-900 p-8 shadow-popover">
+      <div className="w-full max-w-md rounded-xl border border-line bg-surface-900 p-6 shadow-popover">
         {step > 0 && (
           <div className="mb-6 flex items-center gap-2">
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
@@ -114,7 +114,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-500">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-accent-500">
         <Sparkles className="h-8 w-8 text-white" />
       </div>
       <h1 className="font-display text-2xl text-ink-900">Jerktionary</h1>
@@ -129,7 +129,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       <button
         type="button"
         onClick={onNext}
-        className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent-500 px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-400"
+        className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-400"
       >
         Далее
         <ArrowRight className="h-4 w-4" />
@@ -246,6 +246,19 @@ function AudioStep({
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
 
+  const stopMicTest = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setTesting(false);
+    setMicLevel(0);
+  }, []);
+
   const startMicTest = useCallback(async () => {
     stopMicTest();
     try {
@@ -273,22 +286,9 @@ function AudioStep({
     } catch {
       setTesting(false);
     }
-  }, [deviceId]);
+  }, [deviceId, stopMicTest]);
 
-  const stopMicTest = () => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    setTesting(false);
-    setMicLevel(0);
-  };
-
-  useEffect(() => stopMicTest, []);
+  useEffect(() => stopMicTest, [stopMicTest]);
 
   return (
     <div>
