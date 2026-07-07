@@ -12,6 +12,7 @@ const ABOUT_ME_KEY = "settings.aboutMe";
 const AUDIO_SOURCE_KEY = "settings.audioSource";
 const AUDIO_INPUT_DEVICE_KEY = "settings.audioInputDeviceId";
 const THEME_KEY = "settings.theme";
+const SETUP_COMPLETED_KEY = "settings.hasCompletedSetup";
 
 export const DEFAULT_DISPLAY_NAME = "Jerktionary";
 export type AudioSource = "microphone" | "system";
@@ -55,12 +56,15 @@ type SettingsState = {
   /** Preferred microphone deviceId; empty string means the system default. */
   audioInputDeviceId: string;
   theme: Theme;
+  hasCompletedSetup: boolean;
   setBackendHttpUrl: (url: string) => void;
   setDisplayName: (name: string) => void;
   setAboutMe: (aboutMe: string) => void;
   setAudioSource: (source: AudioSource) => void;
   setAudioInputDeviceId: (deviceId: string) => void;
   setTheme: (theme: Theme) => void;
+  completeSetup: () => void;
+  resetSetup: () => void;
 };
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -70,6 +74,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   audioSource: readAudioSource(),
   audioInputDeviceId: readInitial(AUDIO_INPUT_DEVICE_KEY, ""),
   theme: normalizeTheme(readInitial(THEME_KEY, "light")),
+  hasCompletedSetup: readInitial(SETUP_COMPLETED_KEY, "false") === "true",
   setBackendHttpUrl: (url) => {
     const normalized = normalizeHttpUrl(url) || appConfig.backendHttpUrl;
     writeSetting(HTTP_KEY, normalized);
@@ -97,6 +102,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     writeSetting(THEME_KEY, theme);
     set({ theme });
     document.documentElement.classList.toggle("dark", theme === "dark");
+  },
+  completeSetup: () => {
+    writeSetting(SETUP_COMPLETED_KEY, "true");
+    set({ hasCompletedSetup: true });
+  },
+  resetSetup: () => {
+    writeSetting(SETUP_COMPLETED_KEY, "false");
+    set({ hasCompletedSetup: false });
   }
 }));
 

@@ -153,6 +153,19 @@ export function SettingsPopover({ children }: PropsWithChildren) {
             </span>
           </label>
 
+          <div className="mt-4 border-t border-line pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                useSettingsStore.getState().resetSetup();
+                setOpen(false);
+              }}
+              className="text-xs text-ink-500 hover:text-ink-700"
+            >
+              Пройти настройку заново
+            </button>
+          </div>
+
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"

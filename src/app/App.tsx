@@ -11,6 +11,7 @@ import {
 import { MeetingContextField } from "@/features/meetings/components/MeetingContextField";
 import { SettingsPopover } from "@/features/settings/components/SettingsPopover";
 import { getBackendSwaggerUrl, useSettingsStore } from "@/features/settings/store/settings-store";
+import { SetupWizard } from "@/features/settings/components/SetupWizard";
 import { TranscriptView } from "@/features/transcript/components/TranscriptView";
 import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
 import { Header } from "@/widgets/Header";
@@ -35,6 +36,13 @@ export function App() {
   const websocketError = useTranscriptStore((state) => state.websocketError);
 
   const canListen = Boolean(backendStatus.ready?.ready) && !backendStatus.isUnavailable;
+
+  const hasCompletedSetup = useSettingsStore((state) => state.hasCompletedSetup);
+  const completeSetup = useSettingsStore((state) => state.completeSetup);
+
+  if (!hasCompletedSetup) {
+    return <SetupWizard onComplete={completeSetup} />;
+  }
 
   // Warm the explanation cache for on-screen terms so hovering is instant.
   useExplanationPrefetch(terms, currentText);
