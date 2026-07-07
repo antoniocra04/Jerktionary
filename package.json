@@ -86,9 +86,11 @@
       "out/**/*"
     ],
     "directories": {
+      "buildResources": "build",
       "output": "release"
     },
     "win": {
+      "icon": "build/icon.png",
       "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false,
       "target": [
@@ -97,6 +99,7 @@
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         "tar.gz",
         "zip"
@@ -104,6 +107,7 @@
       "category": "Utility"
     },
     "mac": {
+      "icon": "build/icon.png",
       "target": [
         "dmg",
         "zip"

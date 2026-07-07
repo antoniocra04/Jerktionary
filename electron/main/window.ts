@@ -12,6 +12,7 @@ export function createMainWindow(): BrowserWindow {
     title: "Jerktionary",
     show: false,
     skipTaskbar: true,
+    icon: join(__dirname, "../../build/icon.png"),
     webPreferences: {
       preload: join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
