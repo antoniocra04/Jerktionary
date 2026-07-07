@@ -66,7 +66,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="flex h-screen items-center justify-center bg-surface-950 p-6">
-      <div className="w-full max-w-md rounded-xl border border-line bg-surface-900 p-6 shadow-popover">
+      <div className="w-full max-w-md rounded-xl border border-line bg-surface-900 p-5 shadow-popover">
         {step > 0 && (
           <div className="mb-6 flex items-center gap-2">
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
@@ -214,7 +214,7 @@ function BackendStep({
           type="button"
           onClick={onNext}
           disabled={!canNext}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-400 disabled:opacity-50"
         >
           Далее
           <ArrowRight className="h-4 w-4" />
@@ -307,7 +307,7 @@ function AudioStep({
               stopMicTest();
             }}
             className={cn(
-              "inline-flex min-h-8 items-center justify-center gap-2 rounded px-2 text-xs font-medium transition",
+              "inline-flex min-h-8 items-center justify-center gap-2 rounded px-2 text-xs transition",
               source === "microphone"
                 ? "bg-accent-500 text-white"
                 : "text-ink-500 hover:bg-ink-900/5 hover:text-ink-700"
@@ -323,7 +323,7 @@ function AudioStep({
               stopMicTest();
             }}
             className={cn(
-              "inline-flex min-h-8 items-center justify-center gap-2 rounded px-2 text-xs font-medium transition",
+              "inline-flex min-h-8 items-center justify-center gap-2 rounded px-2 text-xs transition",
               source === "system"
                 ? "bg-accent-500 text-white"
                 : "text-ink-500 hover:bg-ink-900/5 hover:text-ink-700"
@@ -363,7 +363,7 @@ function AudioStep({
               type="button"
               onClick={testing ? stopMicTest : startMicTest}
               className={cn(
-                "rounded-md border px-3 py-1.5 text-xs font-medium",
+                "rounded-md border px-3 py-1.5 text-xs",
                 testing
                   ? "border-red-300 text-red-700 hover:bg-red-50"
                   : "border-line text-ink-600 hover:bg-ink-900/5"
@@ -379,7 +379,7 @@ function AudioStep({
                     <span
                       key={i}
                       className={cn(
-                        "h-2 flex-1 rounded-sm transition-colors",
+                        "h-2 flex-1 rounded transition-colors",
                         micLevel >= threshold ? "bg-accent-500" : "bg-ink-900/10"
                       )}
                     />
@@ -403,7 +403,7 @@ function AudioStep({
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-400"
         >
           Далее
           <ArrowRight className="h-4 w-4" />
@@ -444,7 +444,7 @@ function DoneStep({ onStart, onPrev }: { onStart: () => void; onPrev: () => void
         <button
           type="button"
           onClick={onStart}
-          className="inline-flex items-center gap-1.5 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-400"
         >
           Начать
           <Check className="h-4 w-4" />
