@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { getAsrWsHello, getBackendWsUrl } from "@/features/settings/store/settings-store";
+import { getBackendWsUrl } from "@/features/settings/store/settings-store";
 import type { BackendWsEvent } from "@/shared/types/transcript";
 import { mergeTerms } from "@/features/transcript/services/transcript-merger";
 import { TranscriptWsClient } from "@/features/transcript/services/transcript-ws-client";
@@ -42,7 +42,6 @@ export function useTranscriptSocket() {
       onEvent: handleEvent,
       onStatus: useTranscriptStore.getState().setConnectionStatus,
       onError: useTranscriptStore.getState().setWebsocketError,
-      buildHelloMessage: getAsrWsHello,
       reconnect: true
     });
     clientRef.current = client;

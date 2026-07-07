@@ -1,8 +1,5 @@
 import { HttpError } from "@/shared/api/http-client";
-import {
-  getBackendHttpUrl,
-  getBackendModelSettings
-} from "@/features/settings/store/settings-store";
+import { getBackendHttpUrl } from "@/features/settings/store/settings-store";
 import type { TermExplanation } from "@/shared/types/term";
 import { termContext } from "@/shared/utils/context-slice";
 
@@ -34,8 +31,7 @@ export async function explainTermStream(
       headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
       body: JSON.stringify({
         term,
-        context: termContext(context, term, 2000),
-        llm: getBackendModelSettings().llm
+        context: termContext(context, term, 2000)
       }),
       signal
     });

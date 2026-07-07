@@ -1,9 +1,5 @@
 import { HttpError } from "@/shared/api/http-client";
-import {
-  getBackendHttpUrl,
-  getBackendModelSettings,
-  useSettingsStore
-} from "@/features/settings/store/settings-store";
+import { getBackendHttpUrl, useSettingsStore } from "@/features/settings/store/settings-store";
 import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
 import type { LiveAnswer } from "@/shared/types/answer";
 
@@ -44,8 +40,7 @@ export async function answerQuestionStream(
         context: context.slice(-2000),
         deep,
         profile: useSettingsStore.getState().aboutMe.slice(0, 1000),
-        meeting_context: useTranscriptStore.getState().meetingContext.slice(0, 2000),
-        llm: getBackendModelSettings().llm
+        meeting_context: useTranscriptStore.getState().meetingContext.slice(0, 2000)
       }),
       signal
     });
