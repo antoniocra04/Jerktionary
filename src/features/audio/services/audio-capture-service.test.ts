@@ -124,6 +124,15 @@ function stubGetUserMedia(fn: (...args: unknown[]) => unknown) {
   });
 }
 
+function stubEnumerateDevices(fn: (...args: unknown[]) => unknown) {
+  ensureMediaDevices();
+  Object.defineProperty(navigator.mediaDevices, "enumerateDevices", {
+    value: fn,
+    configurable: true,
+    writable: true
+  });
+}
+
 describe("AudioCaptureService — captureSystemAudio (Windows)", () => {
   let service: AudioCaptureService;
 
@@ -307,5 +316,92 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     await expect(service["captureSystemAudio"]()).rejects.toThrow(
       /Не найден виртуальный/
     );
+  });
+});
+
+describe("AudioCaptureService — captureSystemAudio (Linux monitor sources)", () => {
+  let service: AudioCaptureService;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    service = new AudioCaptureService();
+    setDesktopApiPlatform("linux");
+  });
+
+  it("Linux: captures system audio via PulseAudio monitor source", async () => {
+    const monitorDevice: MediaDeviceInfo = {
+      deviceId: "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor",
+      kind: "audioinput",
+      label: "Monitor of Built-in Audio Analog Stereo",
+      groupId: "group-monitor-1",
+      toJSON: () => ({})
+    };
+    const micDevice: MediaDeviceInfo = {
+      deviceId: "default-mic",
+      kind: "audioinput",
+      label: "Built-in Microphone",
+      groupId: "group-mic-1",
+      toJSON: () => ({})
+    };
+
+    const enumerateDevices = vi.fn().mockResolvedValue([monitorDevice, micDevice]);
+    stubEnumerateDevices(enumerateDevices);
+
+    const audioTrack = mockTrack("audio");
+    const monitorStream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(monitorStream);
+    stubGetUserMedia(getUserMedia);
+
+    // Also stub getDisplayMedia to verify it is NOT called.
+    const getDisplayMedia = vi.fn();
+    stubGetDisplayMedia(getDisplayMedia);
+
+
+    const result = await service["captureSystemAudio"]();
+    expect(result).toBeDefined();
+
+    // Should use getUserMedia with the monitor device, not getDisplayMedia.
+    expect(getDisplayMedia).not.toHaveBeenCalled();
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: expect.objectContaining({
+        deviceId: { exact: monitorDevice.deviceId },
+        channelCount: 1,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      })
+    });
+  });
+
+  it("Linux: uses microphone fallback when no monitor source found", async () => {
+    const micDevice: MediaDeviceInfo = {
+      deviceId: "default-mic",
+      kind: "audioinput",
+      label: "Built-in Microphone",
+      groupId: "group-mic-1",
+      toJSON: () => ({})
+    };
+
+    const enumerateDevices = vi.fn().mockResolvedValue([micDevice]);
+    stubEnumerateDevices(enumerateDevices);
+
+    const audioTrack = mockTrack("audio");
+    const micStream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(micStream);
+    stubGetUserMedia(getUserMedia);
+
+
+    const result = await service["captureSystemAudio"]();
+    expect(result).toBeDefined();
+
+    // Should fall back to default microphone (no deviceId constraint).
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
   });
 });
