@@ -163,8 +163,9 @@ export class AudioCaptureService {
     if (!device) {
       const names = KNOWN_VIRTUAL_DEVICES.join(", ");
       throw new Error(
-        `Не найден виртуальный аудиоустройство (${names}). ` +
-          `Установите один из них: ` +
+        `macOS 12 and earlier require a virtual audio driver for system audio capture. ` +
+          `Не найден виртуальный аудиоустройство (${names}). ` +
+          `Установите один из них (рекомендуется BlackHole): ` +
           `BlackHole — https://existential.audio/blackhole, ` +
           `Soundflower — https://github.com/mattingalls/Soundflower, ` +
           `Loopback — https://rogueamoeba.com/loopback`
