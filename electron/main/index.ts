@@ -28,7 +28,7 @@ app.setName("Jerktionary");
 ipcMain.handle("app:getVersion", () => app.getVersion());
 ipcMain.handle("app:getPlatform", () => process.platform);
 ipcMain.handle("shell:openExternal", async (_, url: string) => {
-  if (url.startsWith("https://") || url.startsWith("http://127.0.0.1:8000")) {
+  if (url.startsWith("https://") || url.startsWith("http://")) {
     await shell.openExternal(url);
   }
 });
