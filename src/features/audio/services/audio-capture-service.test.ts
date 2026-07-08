@@ -141,7 +141,6 @@ describe("AudioCaptureService — captureSystemAudio (Windows)", () => {
     const getDisplayMedia = vi.fn().mockResolvedValue(stream);
     stubGetDisplayMedia(getDisplayMedia);
 
-    // @ts-expect-error — accessing private method for test
     await expect(service["captureSystemAudio"]()).resolves.toBeDefined();
 
     expect(getDisplayMedia).toHaveBeenCalledWith({ audio: true, video: true });
@@ -166,7 +165,7 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     const getDisplayMedia = vi.fn().mockResolvedValue(stream);
     stubGetDisplayMedia(getDisplayMedia);
 
-    // @ts-expect-error — private method access
+
     const result = await service["captureSystemAudio"]();
     expect(result).toBeDefined();
     expect(getDisplayMedia).toHaveBeenCalledWith({ audio: true, video: true });
@@ -193,7 +192,7 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     const getUserMedia = vi.fn().mockResolvedValue(stream);
     stubGetUserMedia(getUserMedia);
 
-    // @ts-expect-error — private method access
+
     const result = await service["captureSystemAudio"]();
     expect(result).toBeDefined();
     expect(detectVirtualAudioDevice).toHaveBeenCalled();
@@ -216,7 +215,7 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
 
     vi.mocked(detectVirtualAudioDevice).mockResolvedValue(null);
 
-    // @ts-expect-error — private method access
+
     await expect(service["captureSystemAudio"]()).rejects.toThrow(
       /Не найден виртуальный аудиоустройство/
     );
@@ -228,7 +227,7 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     );
     stubGetDisplayMedia(getDisplayMedia);
 
-    // @ts-expect-error — private method access
+
     await expect(service["captureSystemAudio"]()).rejects.toThrow("Some other error");
   });
 });
