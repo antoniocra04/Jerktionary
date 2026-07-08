@@ -43,8 +43,6 @@ export function SettingsPopover({ children }: PropsWithChildren) {
   // Detect virtual device & Multi-Output status when system source is selected on macOS.
   useEffect(() => {
     if (platform !== "darwin" || source !== "system") {
-      setMacVirtualDevice(null);
-      setMacMultiOutputExists(true);
       return;
     }
     let cancelled = false;
@@ -61,6 +59,12 @@ export function SettingsPopover({ children }: PropsWithChildren) {
       cancelled = true;
     };
   }, [platform, source]);
+
+  // Derive effective macOS state during render.
+  const effectiveVirtualDevice =
+    platform === "darwin" && source === "system" ? macVirtualDevice : null;
+  const effectiveMultiOutputExists =
+    platform === "darwin" && source === "system" ? macMultiOutputExists : true;
 
   // Device labels are only available once mic permission has been granted at
   // least once; before that the list stays generic ("Микрофон 1").
@@ -153,9 +157,9 @@ export function SettingsPopover({ children }: PropsWithChildren) {
               </select>
             )}
 
-            {source === "system" && platform === "darwin" && macVirtualDevice && devices.length > 0 && (
+            {source === "system" && platform === "darwin" && effectiveVirtualDevice && devices.length > 0 && (
               <select
-                value={deviceId || macVirtualDevice.deviceId}
+                value={deviceId || effectiveVirtualDevice.deviceId}
                 onChange={(event) => setDeviceId(event.target.value)}
                 className={inputClass}
               >
@@ -167,7 +171,7 @@ export function SettingsPopover({ children }: PropsWithChildren) {
               </select>
             )}
 
-            {source === "system" && platform === "darwin" && !macVirtualDevice && (
+            {source === "system" && platform === "darwin" && !effectiveVirtualDevice && (
               <div className="mt-3 space-y-1.5 rounded-md border border-line bg-surface-900 p-2.5">
                 <p className="text-[11px] leading-4 text-ink-400">
                   Для захвата системного звука на этой версии macOS требуется виртуальное
@@ -194,8 +198,8 @@ export function SettingsPopover({ children }: PropsWithChildren) {
 
             {source === "system" &&
               platform === "darwin" &&
-              macVirtualDevice &&
-              !macMultiOutputExists && (
+              effectiveVirtualDevice &&
+              !effectiveMultiOutputExists && (
                 <div className="mt-3 flex items-start gap-2 text-[11px] leading-4 text-ink-400">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>

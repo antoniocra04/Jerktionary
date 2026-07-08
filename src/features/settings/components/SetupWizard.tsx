@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
@@ -273,10 +272,9 @@ function AudioStep({
     void window.desktopAPI?.getPlatform().then((p) => setPlatform(p ?? ""));
   }, []);
 
+  // Detect virtual devices when on macOS with system source.
   useEffect(() => {
     if (platform !== "darwin" || source !== "system") {
-      setMacVirtualDevice(null);
-      setMacMultiOutputExists(true);
       return;
     }
     let cancelled = false;
@@ -293,6 +291,13 @@ function AudioStep({
       cancelled = true;
     };
   }, [platform, source]);
+
+  // Derive effective macOS state during render — reset to defaults
+  // when the source is not "system" or the platform is not macOS.
+  const effectiveVirtualDevice =
+    platform === "darwin" && source === "system" ? macVirtualDevice : null;
+  const effectiveMultiOutputExists =
+    platform === "darwin" && source === "system" ? macMultiOutputExists : true;
 
   const stopMicTest = useCallback(() => {
     if (rafRef.current) {
@@ -428,11 +433,11 @@ function AudioStep({
         </label>
       )}
 
-      {source === "system" && platform === "darwin" && macVirtualDevice && devices.length > 0 && (
+      {source === "system" && platform === "darwin" && effectiveVirtualDevice && devices.length > 0 && (
         <label className="mt-4 block">
           <span className="text-xs text-ink-500">Виртуальное аудиоустройство</span>
           <select
-            value={deviceId || macVirtualDevice.deviceId}
+            value={deviceId || effectiveVirtualDevice.deviceId}
             onChange={(e) => {
               onDeviceChange(e.target.value);
               stopMicTest();
@@ -448,7 +453,7 @@ function AudioStep({
         </label>
       )}
 
-      {source === "system" && platform === "darwin" && !macVirtualDevice && (
+      {source === "system" && platform === "darwin" && !effectiveVirtualDevice && (
         <div className="mt-4 space-y-2 rounded-md border border-line bg-surface-900 p-3">
           <p className="text-xs text-ink-500">
             Для захвата системного звука на этой версии macOS требуется виртуальное
@@ -473,8 +478,8 @@ function AudioStep({
 
       {source === "system" &&
         platform === "darwin" &&
-        macVirtualDevice &&
-        !macMultiOutputExists && (
+        effectiveVirtualDevice &&
+        !effectiveMultiOutputExists && (
           <div className="mt-4 flex items-start gap-2 text-xs text-ink-500">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <span>

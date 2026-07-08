@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AudioCaptureService } from "./audio-capture-service";
 
 // Mock the mac-audio-utils module so tests are deterministic.

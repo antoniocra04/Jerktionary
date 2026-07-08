@@ -23,11 +23,51 @@ User audio
 ### Frontend
 
 - Captures microphone or system audio.
-- Converts audio to PCM chunks.
+- Converts audio to PCM chunks (16 kHz mono int16-LE).
 - Opens `/ws/audio` and sends binary audio frames.
 - Renders transcript, highlighted terms, explanations, answers, backend status, and settings.
 - Stores backend URL, display name, audio source, model-provider mode, and API keys in local storage.
 - Passes model-provider settings to the backend.
+
+### Audio Capture Flows
+
+#### Microphone (all platforms)
+
+- `getUserMedia({ audio: true, ... })` → browser/OS default microphone.
+- Device picker available in settings and setup wizard.
+
+#### System Audio — Windows
+
+- Electron registers a custom `setDisplayMediaRequestHandler` (main process, gated to `win32`).
+- Handler calls `desktopCapturer.getSources({ types: ["screen"] })` and responds with
+  `{ audio: "loopback", video: primaryScreen }`.
+- Renderer calls `getDisplayMedia({ audio: true, video: true })` → Electron injects
+  the loopback audio stream.
+- Video tracks are stopped/removed; only the audio track is used.
+
+#### System Audio — macOS 13+ (native ScreenCaptureKit)
+
+- No custom `setDisplayMediaRequestHandler` registered (Electron default path).
+- Renderer calls `getDisplayMedia({ audio: true, video: true })` → macOS shows the
+  native screen-recording picker, which includes system audio via ScreenCaptureKit.
+- Video tracks are stopped/removed; only the audio track is used.
+- If the user dismisses the dialog or the platform lacks ScreenCaptureKit
+  (macOS 10.15–12), the code falls through to virtual-device capture.
+
+#### System Audio — macOS 10.15–12 (virtual-device fallback)
+
+- `enumerateDevices()` scans for known virtual audio loopback devices:
+  **BlackHole**, **Soundflower**, **Loopback** (case-insensitive match against
+  `label` or `groupId`).
+- If a virtual device is found → `getUserMedia` with `deviceId: { exact }`,
+  `channelCount: 1`, echo/noise/AGC disabled (clean loopback signal).
+- If no virtual device is found → error with install links for all three devices.
+- The UI shows:
+  - A device selector pre-populated with the detected virtual device.
+  - A **Multi-Output Device** hint if no Multi-Output Device exists in
+    Audio MIDI Setup (required to hear audio while capturing).
+  - Install guidance linking to the official download pages when no virtual
+    device is detected.
 
 ### Backend
 
