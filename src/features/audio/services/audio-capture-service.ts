@@ -103,9 +103,7 @@ export class AudioCaptureService {
 
       return stream;
     } catch (err) {
-      // On macOS, if the native getDisplayMedia fails (e.g. macOS < 13 without
-      // ScreenCaptureKit), fall through to virtual-device capture.
-      if (platform === "darwin" && isUserDeniedOrUnavailable(err)) {
+      if (shouldFallbackToVirtualDevice(err, platform)) {
         return this.captureViaVirtualAudioDevice();
       }
       throw err;
@@ -163,15 +161,34 @@ export class AudioCaptureService {
 }
 
 /**
- * Returns `true` when the error indicates the user dismissed the OS
- * screen-capture dialog (NotAllowedError) or the platform lacks native
- * system-audio capture (NotFoundError). These are expected on macOS < 13
- * where ScreenCaptureKit is unavailable — we fall through to virtual-device
- * capture instead of surfacing the error to the user.
+ * Returns `true` when the error on macOS indicates native system-audio
+ * capture is unavailable and the next-best option is falling through to
+ * virtual-device capture instead of surfacing the error to the user.
+ *
+ * Matched cases (all gated on `platform === "darwin"`):
+ *   - DOMException with name NotAllowedError, NotFoundError, or NotSupportedError
+ *   - The empty-audio-tracks Error thrown when getDisplayMedia succeeds
+ *     but returns zero audio tracks
  */
-function isUserDeniedOrUnavailable(err: unknown): boolean {
-  if (err instanceof DOMException) {
-    return err.name === "NotAllowedError" || err.name === "NotFoundError";
+function shouldFallbackToVirtualDevice(
+  err: unknown,
+  platform: NodeJS.Platform | undefined
+): boolean {
+  if (platform !== "darwin") {
+    return false;
   }
+
+  if (err instanceof DOMException) {
+    return (
+      err.name === "NotAllowedError" ||
+      err.name === "NotFoundError" ||
+      err.name === "NotSupportedError"
+    );
+  }
+
+  if (err instanceof Error) {
+    return err.message === "Не удалось получить системный звук";
+  }
+
   return false;
 }
