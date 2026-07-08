@@ -103,6 +103,7 @@ export class AudioCaptureService {
       }
 
       if (stream.getAudioTracks().length === 0) {
+        for (const track of stream.getTracks()) track.stop();
         throw new Error("Не удалось получить системный звук");
       }
 
@@ -215,7 +216,7 @@ export class AudioCaptureService {
  * virtual-device capture instead of surfacing the error to the user.
  *
  * Matched cases (all gated on `platform === "darwin"`):
- *   - DOMException with name NotAllowedError, NotFoundError, or NotSupportedError
+ *   - DOMException with name NotAllowedError, NotFoundError, NotSupportedError, or AbortError
  *   - The empty-audio-tracks Error thrown when getDisplayMedia succeeds
  *     but returns zero audio tracks
  */
@@ -231,7 +232,8 @@ function shouldFallbackToVirtualDevice(
     return (
       err.name === "NotAllowedError" ||
       err.name === "NotFoundError" ||
-      err.name === "NotSupportedError"
+      err.name === "NotSupportedError" ||
+      err.name === "AbortError"
     );
   }
 

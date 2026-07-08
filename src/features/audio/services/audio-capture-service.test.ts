@@ -304,6 +304,32 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     expect(detectVirtualAudioDevice).toHaveBeenCalled();
   });
 
+  it("AbortError on macOS falls through to virtual-device capture", async () => {
+    const getDisplayMedia = vi.fn().mockRejectedValue(
+      Object.assign(new DOMException("", "AbortError"))
+    );
+    stubGetDisplayMedia(getDisplayMedia);
+
+    const virtualDevice: MediaDeviceInfo = {
+      deviceId: "bh-3",
+      kind: "audioinput",
+      label: "BlackHole 16ch",
+      groupId: "group-3",
+      toJSON: () => ({})
+    };
+    vi.mocked(detectVirtualAudioDevice).mockResolvedValue(virtualDevice);
+
+    const audioTrack = mockTrack("audio");
+    const stream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    stubGetUserMedia(getUserMedia);
+
+
+    const result = await service["captureSystemAudio"]();
+    expect(result).toBeDefined();
+    expect(detectVirtualAudioDevice).toHaveBeenCalled();
+  });
+
   it("empty audio tracks on macOS with no virtual device throws install-guidance error", async () => {
     const videoTrack = mockTrack("video");
     const stream = mockStream([videoTrack]);
