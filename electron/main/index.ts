@@ -6,6 +6,7 @@ import {
   ipcMain,
   session,
   shell,
+  systemPreferences,
   type Rectangle
 } from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
@@ -65,6 +66,20 @@ ipcMain.handle("window:setOverlayMode", (_, enabled: boolean) => {
 ipcMain.handle("meetings:list", () => listMeetings());
 ipcMain.handle("meetings:save", (_, record: MeetingRecord) => saveMeeting(record));
 ipcMain.handle("meetings:delete", (_, id: string) => deleteMeeting(id));
+
+ipcMain.handle("app:requestMediaAccess", async (_, hint: "microphone" | "screen") => {
+  if (process.platform !== "darwin") {
+    return true;
+  }
+  if (hint === "screen") {
+    return true; // getDisplayMedia triggers its own native picker
+  }
+  const status = systemPreferences.getMediaAccessStatus("microphone");
+  if (status === "granted") {
+    return true;
+  }
+  return systemPreferences.askForMediaAccess("microphone");
+});
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("local.jerktionary.desktop");

@@ -17,6 +17,7 @@ const api: DesktopApi = {
     ipcRenderer.invoke("window:setContentProtection", enabled),
   setWindowTitle: (title: string) => ipcRenderer.invoke("window:setTitle", title),
   setOverlayMode: (enabled: boolean) => ipcRenderer.invoke("window:setOverlayMode", enabled),
+  requestMediaAccess: (hint) => ipcRenderer.invoke("app:requestMediaAccess", hint),
   onAnswerNow: (listener) => subscribe("hotkey:answer-now", listener),
   onToggleOverlay: (listener) => subscribe("hotkey:toggle-overlay", listener),
   listMeetings: () => ipcRenderer.invoke("meetings:list"),

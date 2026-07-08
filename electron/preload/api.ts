@@ -22,6 +22,8 @@ export type DesktopApi = {
   setContentProtection: (enabled: boolean) => Promise<void>;
   setWindowTitle: (title: string) => Promise<void>;
   setOverlayMode: (enabled: boolean) => Promise<void>;
+  /** Request native macOS microphone or screen recording permission. */
+  requestMediaAccess: (hint: "microphone" | "screen") => Promise<boolean>;
   /** Subscribe to the global "answer now" hotkey; returns an unsubscribe. */
   onAnswerNow: (listener: () => void) => () => void;
   /** Subscribe to the global overlay-toggle hotkey; returns an unsubscribe. */

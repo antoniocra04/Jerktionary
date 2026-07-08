@@ -28,6 +28,9 @@ export class AudioCaptureService {
       throw new Error("AudioContext не поддерживается");
     }
 
+    const hint = source === "system" ? "screen" as const : "microphone" as const;
+    await window.desktopAPI?.requestMediaAccess(hint);
+
     this.stream =
       source === "system"
         ? await this.captureSystemAudio()
