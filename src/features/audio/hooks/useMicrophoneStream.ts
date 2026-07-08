@@ -50,6 +50,10 @@ function mapMicrophoneError(error: unknown): string {
     return "Микрофон не найден";
   }
 
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "Доступ к аудиоустройству прерван. Проверьте разрешения macOS: Системные настройки → Конфиденциальность → Микрофон";
+  }
+
   if (error instanceof Error) {
     return error.message;
   }

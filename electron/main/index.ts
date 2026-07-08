@@ -68,6 +68,12 @@ ipcMain.handle("meetings:delete", (_, id: string) => deleteMeeting(id));
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("local.jerktionary.desktop");
+
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ["media", "mediaKeySystem"];
+    callback(allowed.includes(permission));
+  });
+
   // The custom display-media handler is only needed on Windows for
   // `audio: "loopback"` system-audio capture. On macOS 13+ Electron uses
   // ScreenCaptureKit natively when no handler is registered; on Linux there is
