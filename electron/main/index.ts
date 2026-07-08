@@ -68,20 +68,21 @@ ipcMain.handle("meetings:delete", (_, id: string) => deleteMeeting(id));
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId("local.jerktionary.desktop");
-  session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
-    if (process.platform !== "win32") {
-      callback({});
-      return;
-    }
+  // The custom display-media handler is only needed on Windows for
+  // `audio: "loopback"` system-audio capture. On macOS 13+ Electron uses
+  // ScreenCaptureKit natively when no handler is registered; on Linux there is
+  // no system-audio path yet.
+  if (process.platform === "win32") {
+    session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
+      const sources = await desktopCapturer.getSources({ types: ["screen"] });
+      const primaryScreen = sources[0];
 
-    const sources = await desktopCapturer.getSources({ types: ["screen"] });
-    const primaryScreen = sources[0];
-
-    callback({
-      audio: "loopback",
-      ...(primaryScreen ? { video: primaryScreen } : {})
+      callback({
+        audio: "loopback",
+        ...(primaryScreen ? { video: primaryScreen } : {})
+      });
     });
-  });
+  }
 
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
