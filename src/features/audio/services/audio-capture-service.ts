@@ -75,17 +75,22 @@ export class AudioCaptureService {
   private async captureSystemAudio(): Promise<MediaStream> {
     const platform = await window.desktopAPI?.getPlatform();
 
+    // Linux: use PulseAudio/PipeWire monitor sources via getUserMedia.
+    // Monitor sources are regular audioinput devices (no getDisplayMedia needed).
+    if (platform === "linux") {
+      return this.captureSystemAudioOnLinux();
+    }
+
     if (!navigator.mediaDevices.getDisplayMedia) {
       throw new Error("Browser API для захвата системного звука недоступен");
     }
 
-    // Primary path: getDisplayMedia.
+    // Primary path: getDisplayMedia (Windows + macOS only; Linux handled above).
     //   Windows  → Electron's custom handler injects `audio: "loopback"`.
     //   macOS 13+ → no handler → Electron defaults to ScreenCaptureKit, which
     //                includes system audio in the native OS picker.
     //   macOS <13 → the dialog may appear but audio is not included; we fall
     //                through to virtual-device capture on error.
-    //   Linux     → no system-audio handler; getDisplayMedia will fail.
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: true,
@@ -108,6 +113,49 @@ export class AudioCaptureService {
       }
       throw err;
     }
+  }
+
+  private async captureSystemAudioOnLinux(): Promise<MediaStream> {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      throw new Error("Перечисление аудиоустройств недоступно");
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Браузерный API микрофона недоступен");
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter((d) => d.kind === "audioinput");
+
+    // PulseAudio monitor sources have ".monitor" suffix in deviceId/label.
+    // PipeWire emulates the same convention, so no separate detection needed.
+    const monitorSource = audioInputs.find(
+      (d) =>
+        d.deviceId.includes(".monitor") ||
+        d.label.toLowerCase().includes("monitor")
+    );
+
+    if (monitorSource) {
+      return navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: monitorSource.deviceId },
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    }
+
+    // No monitor source found — fall back to default microphone input.
+    return navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
   }
 
   private async captureViaVirtualAudioDevice(): Promise<MediaStream> {
