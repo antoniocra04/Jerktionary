@@ -81,8 +81,19 @@ ipcMain.handle("app:requestMediaAccess", async (_, hint: "microphone" | "screen"
   return systemPreferences.askForMediaAccess("microphone");
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId("local.jerktionary.desktop");
+
+  // Request microphone permission before Chromium starts so that
+  // getUserMedia picks up the TCC state immediately. On macOS a TCC
+  // grant that happens after the renderer process is already running
+  // may be ignored by Chromium's internal permission cache.
+  if (process.platform === "darwin") {
+    const micStatus = systemPreferences.getMediaAccessStatus("microphone");
+    if (micStatus !== "granted") {
+      await systemPreferences.askForMediaAccess("microphone");
+    }
+  }
 
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allowed = ["media", "mediaKeySystem"];

@@ -82,6 +82,10 @@ vi.mock("electron", () => {
     },
     shell: {
       openExternal: vi.fn().mockResolvedValue(undefined)
+    },
+    systemPreferences: {
+      getMediaAccessStatus: vi.fn().mockReturnValue("granted"),
+      askForMediaAccess: vi.fn().mockResolvedValue(true)
     }
   };
 });

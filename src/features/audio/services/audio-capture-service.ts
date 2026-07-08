@@ -28,18 +28,35 @@ export class AudioCaptureService {
       throw new Error("AudioContext не поддерживается");
     }
 
-    const hint = source === "system" ? "screen" as const : "microphone" as const;
-    const accessGranted = await window.desktopAPI?.requestMediaAccess(hint);
-    if (accessGranted === true) {
-      // TCC permission was just granted (dialog shown); give Chromium a
-      // moment to pick up the new permission state before calling getUserMedia.
-      await new Promise((r) => setTimeout(r, 300));
+    // For system audio on macOS, trigger native screen-recording permission
+    // dialog (getDisplayMedia shows its own picker, but TCC must be granted first).
+    if (source === "system") {
+      await window.desktopAPI?.requestMediaAccess("screen");
     }
 
-    this.stream =
-      source === "system"
-        ? await this.captureSystemAudio()
-        : await this.captureMicrophone(inputDeviceId);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        this.stream =
+          source === "system"
+            ? await this.captureSystemAudio()
+            : await this.captureMicrophone(inputDeviceId);
+        break;
+      } catch (err) {
+        if (
+          attempt === 0 &&
+          err instanceof DOMException &&
+          err.name === "AbortError"
+        ) {
+          await new Promise((r) => setTimeout(r, 1000));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!this.stream) {
+      throw new Error("Не удалось получить аудиопоток");
+    }
 
     this.context = new AudioContextCtor();
     await this.context.audioWorklet.addModule(
