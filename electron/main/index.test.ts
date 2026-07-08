@@ -9,6 +9,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const setHandlerSpy = vi.fn();
 const setPermissionHandlerSpy = vi.fn();
+const setPermissionCheckHandlerSpy = vi.fn();
 const mockWindow = {
   setContentProtection: vi.fn(),
   setSkipTaskbar: vi.fn(),
@@ -48,7 +49,8 @@ vi.mock("electron", () => {
     session: {
       defaultSession: {
         setDisplayMediaRequestHandler: setHandlerSpy,
-        setPermissionRequestHandler: setPermissionHandlerSpy
+        setPermissionRequestHandler: setPermissionHandlerSpy,
+        setPermissionCheckHandler: setPermissionCheckHandlerSpy
       }
     },
     app: {
@@ -103,6 +105,7 @@ describe("setDisplayMediaRequestHandler platform gate", () => {
     vi.resetModules();
     setHandlerSpy.mockReset();
     setPermissionHandlerSpy.mockReset();
+    setPermissionCheckHandlerSpy.mockReset();
     whenReadyCb = null;
     originalPlatform = process.platform;
   });
@@ -177,5 +180,24 @@ describe("setDisplayMediaRequestHandler platform gate", () => {
     callbackSpy.mockReset();
     handler(null, "geolocation", callbackSpy);
     expect(callbackSpy).toHaveBeenCalledWith(false);
+  });
+
+  it("permission check handler allows media, denies other permissions", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    await import("./index");
+
+    expect(whenReadyCb).not.toBeNull();
+    whenReadyCb!();
+
+    expect(setPermissionCheckHandlerSpy).toHaveBeenCalledTimes(1);
+
+    const checkHandler = setPermissionCheckHandlerSpy.mock.calls[0][0];
+    expect(checkHandler(null, "media")).toBe(true);
+    expect(checkHandler(null, "geolocation")).toBe(false);
+    expect(checkHandler(null, "notifications")).toBe(false);
   });
 });

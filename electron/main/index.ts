@@ -89,6 +89,11 @@ app.whenReady().then(() => {
     callback(allowed.includes(permission));
   });
 
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    if (permission === "media") return true;
+    return false;
+  });
+
   // The custom display-media handler is only needed on Windows for
   // `audio: "loopback"` system-audio capture. On macOS 13+ Electron uses
   // ScreenCaptureKit natively when no handler is registered; on Linux there is

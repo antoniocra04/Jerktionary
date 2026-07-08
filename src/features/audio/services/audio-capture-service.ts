@@ -29,7 +29,12 @@ export class AudioCaptureService {
     }
 
     const hint = source === "system" ? "screen" as const : "microphone" as const;
-    await window.desktopAPI?.requestMediaAccess(hint);
+    const accessGranted = await window.desktopAPI?.requestMediaAccess(hint);
+    if (accessGranted === true) {
+      // TCC permission was just granted (dialog shown); give Chromium a
+      // moment to pick up the new permission state before calling getUserMedia.
+      await new Promise((r) => setTimeout(r, 300));
+    }
 
     this.stream =
       source === "system"
