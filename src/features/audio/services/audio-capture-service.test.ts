@@ -230,4 +230,82 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
 
     await expect(service["captureSystemAudio"]()).rejects.toThrow("Some other error");
   });
+
+  it("empty audio tracks on macOS fall through to virtual-device capture", async () => {
+    // getDisplayMedia succeeds but returns video-only stream (no audio tracks)
+    const videoTrack = mockTrack("video");
+    const stream = mockStream([videoTrack]);
+    const getDisplayMedia = vi.fn().mockResolvedValue(stream);
+    stubGetDisplayMedia(getDisplayMedia);
+
+    const virtualDevice: MediaDeviceInfo = {
+      deviceId: "bh-1",
+      kind: "audioinput",
+      label: "BlackHole 16ch",
+      groupId: "group-1",
+      toJSON: () => ({})
+    };
+    vi.mocked(detectVirtualAudioDevice).mockResolvedValue(virtualDevice);
+
+    const audioTrack = mockTrack("audio");
+    const virtualStream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(virtualStream);
+    stubGetUserMedia(getUserMedia);
+
+
+    const result = await service["captureSystemAudio"]();
+    expect(result).toBeDefined();
+    expect(detectVirtualAudioDevice).toHaveBeenCalled();
+    expect(getUserMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audio: expect.objectContaining({
+          deviceId: { exact: "bh-1" },
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        })
+      })
+    );
+  });
+
+  it("NotSupportedError on macOS falls through to virtual-device capture", async () => {
+    const getDisplayMedia = vi.fn().mockRejectedValue(
+      Object.assign(new DOMException("", "NotSupportedError"))
+    );
+    stubGetDisplayMedia(getDisplayMedia);
+
+    const virtualDevice: MediaDeviceInfo = {
+      deviceId: "bh-2",
+      kind: "audioinput",
+      label: "BlackHole 16ch",
+      groupId: "group-2",
+      toJSON: () => ({})
+    };
+    vi.mocked(detectVirtualAudioDevice).mockResolvedValue(virtualDevice);
+
+    const audioTrack = mockTrack("audio");
+    const stream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    stubGetUserMedia(getUserMedia);
+
+
+    const result = await service["captureSystemAudio"]();
+    expect(result).toBeDefined();
+    expect(detectVirtualAudioDevice).toHaveBeenCalled();
+  });
+
+  it("empty audio tracks on macOS with no virtual device throws install-guidance error", async () => {
+    const videoTrack = mockTrack("video");
+    const stream = mockStream([videoTrack]);
+    const getDisplayMedia = vi.fn().mockResolvedValue(stream);
+    stubGetDisplayMedia(getDisplayMedia);
+
+    vi.mocked(detectVirtualAudioDevice).mockResolvedValue(null);
+
+
+    await expect(service["captureSystemAudio"]()).rejects.toThrow(
+      /Не найден виртуальный/
+    );
+  });
 });
