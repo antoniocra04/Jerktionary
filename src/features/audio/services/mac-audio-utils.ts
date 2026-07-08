@@ -9,6 +9,20 @@
 
 export const KNOWN_VIRTUAL_DEVICES: string[] = ["BlackHole", "Soundflower", "Loopback"];
 
+const DEVICE_INSTALL_URLS: Record<string, string> = {
+  BlackHole: "https://existential.audio/blackhole",
+  Soundflower: "https://github.com/mattingalls/Soundflower",
+  Loopback: "https://rogueamoeba.com/loopback"
+};
+
+export const MULTI_OUTPUT_HELP_URL =
+  "https://support.apple.com/guide/audio-midi-setup/set-up-a-multi-output-device-ams7c093f372/mac";
+
+/** Returns the official install/download URL for a known virtual device. */
+export function getDeviceInstallUrl(name: string): string {
+  return DEVICE_INSTALL_URLS[name] ?? "";
+}
+
 /**
  * Looks through all `audioinput` devices and returns the first one whose
  * `label` or `groupId` (case-insensitive) contains one of the known

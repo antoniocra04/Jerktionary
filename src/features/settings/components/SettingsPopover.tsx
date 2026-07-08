@@ -1,8 +1,15 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mic, Volume2 } from "lucide-react";
+import { ExternalLink, Info, Mic, Volume2 } from "lucide-react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { useEffect, useState } from "react";
+import {
+  detectVirtualAudioDevice,
+  getDeviceInstallUrl,
+  hasMultiOutputDevice,
+  KNOWN_VIRTUAL_DEVICES,
+  MULTI_OUTPUT_HELP_URL
+} from "@/features/audio/services/mac-audio-utils";
 import { DEFAULT_DISPLAY_NAME, type AudioSource, useSettingsStore } from "@/features/settings/store/settings-store";
 import { cn } from "@/shared/utils/cn";
 
@@ -23,10 +30,47 @@ export function SettingsPopover({ children }: PropsWithChildren) {
   const [deviceId, setDeviceId] = useState(store.audioInputDeviceId);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
 
+  // macOS-specific state for virtual-device fallback hints.
+  const [platform, setPlatform] = useState("");
+  const [macVirtualDevice, setMacVirtualDevice] = useState<MediaDeviceInfo | null>(null);
+  const [macMultiOutputExists, setMacMultiOutputExists] = useState(true);
+
+  // Detect platform once on mount.
+  useEffect(() => {
+    void window.desktopAPI?.getPlatform().then((p) => setPlatform(p ?? ""));
+  }, []);
+
+  // Detect virtual device & Multi-Output status when system source is selected on macOS.
+  useEffect(() => {
+    if (platform !== "darwin" || source !== "system") {
+      setMacVirtualDevice(null);
+      setMacMultiOutputExists(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const vd = await detectVirtualAudioDevice();
+      if (cancelled) return;
+      setMacVirtualDevice(vd);
+      if (vd) {
+        const moe = await hasMultiOutputDevice();
+        if (!cancelled) setMacMultiOutputExists(moe);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [platform, source]);
+
   // Device labels are only available once mic permission has been granted at
   // least once; before that the list stays generic ("Микрофон 1").
+  // Also fetch devices for system source on macOS (virtual-device selector).
   useEffect(() => {
-    if (!open || source !== "microphone" || !navigator.mediaDevices?.enumerateDevices) {
+    if (
+      !open ||
+      !navigator.mediaDevices?.enumerateDevices ||
+      (source !== "microphone" && !(platform === "darwin" && source === "system"))
+    ) {
       return;
     }
     let cancelled = false;
@@ -38,7 +82,7 @@ export function SettingsPopover({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [open, source]);
+  }, [open, source, platform]);
 
   const onOpenChange = (next: boolean) => {
     if (next) {
@@ -108,6 +152,67 @@ export function SettingsPopover({ children }: PropsWithChildren) {
                 ))}
               </select>
             )}
+
+            {source === "system" && platform === "darwin" && macVirtualDevice && devices.length > 0 && (
+              <select
+                value={deviceId || macVirtualDevice.deviceId}
+                onChange={(event) => setDeviceId(event.target.value)}
+                className={inputClass}
+              >
+                {devices.map((device, index) => (
+                  <option key={device.deviceId || index} value={device.deviceId}>
+                    {device.label || `Устройство ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {source === "system" && platform === "darwin" && !macVirtualDevice && (
+              <div className="mt-3 space-y-1.5 rounded-md border border-line bg-surface-900 p-2.5">
+                <p className="text-[11px] leading-4 text-ink-400">
+                  Для захвата системного звука на этой версии macOS требуется виртуальное
+                  аудиоустройство. Установите одно из:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {KNOWN_VIRTUAL_DEVICES.map((name) => (
+                    <li key={name} className="text-xs">
+                      <button
+                        type="button"
+                        className="text-accent-500 underline hover:text-accent-400"
+                        onClick={() => {
+                          void window.desktopAPI?.openExternal(getDeviceInstallUrl(name));
+                        }}
+                      >
+                        {name}
+                        <ExternalLink className="ml-1 inline h-3 w-3" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {source === "system" &&
+              platform === "darwin" &&
+              macVirtualDevice &&
+              !macMultiOutputExists && (
+                <div className="mt-3 flex items-start gap-2 text-[11px] leading-4 text-ink-400">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Чтобы слышать звук при захвате, создайте Multi-Output Device в{" "}
+                    <button
+                      type="button"
+                      className="text-accent-500 underline hover:text-accent-400"
+                      onClick={() => {
+                        void window.desktopAPI?.openExternal(MULTI_OUTPUT_HELP_URL);
+                      }}
+                    >
+                      Audio MIDI Setup
+                      <ExternalLink className="ml-1 inline h-3 w-3" />
+                    </button>
+                  </span>
+                </div>
+              )}
           </div>
 
           <label className="mt-4 block">

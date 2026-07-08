@@ -1,5 +1,23 @@
-import { ArrowLeft, ArrowRight, Check, Mic, Settings, Sparkles, Volume2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ExternalLink,
+  Info,
+  Mic,
+  Settings,
+  Sparkles,
+  Volume2
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  detectVirtualAudioDevice,
+  getDeviceInstallUrl,
+  hasMultiOutputDevice,
+  KNOWN_VIRTUAL_DEVICES,
+  MULTI_OUTPUT_HELP_URL
+} from "@/features/audio/services/mac-audio-utils";
 import { useSettingsStore, type AudioSource } from "@/features/settings/store/settings-store";
 import { backendApi } from "@/shared/api/backend-api";
 import { cn } from "@/shared/utils/cn";
@@ -246,6 +264,36 @@ function AudioStep({
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
 
+  // macOS-specific state for virtual-device fallback hints.
+  const [platform, setPlatform] = useState("");
+  const [macVirtualDevice, setMacVirtualDevice] = useState<MediaDeviceInfo | null>(null);
+  const [macMultiOutputExists, setMacMultiOutputExists] = useState(true);
+
+  useEffect(() => {
+    void window.desktopAPI?.getPlatform().then((p) => setPlatform(p ?? ""));
+  }, []);
+
+  useEffect(() => {
+    if (platform !== "darwin" || source !== "system") {
+      setMacVirtualDevice(null);
+      setMacMultiOutputExists(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const vd = await detectVirtualAudioDevice();
+      if (cancelled) return;
+      setMacVirtualDevice(vd);
+      if (vd) {
+        const moe = await hasMultiOutputDevice();
+        if (!cancelled) setMacMultiOutputExists(moe);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [platform, source]);
+
   const stopMicTest = useCallback(() => {
     if (rafRef.current) {
       cancelAnimationFrame(rafRef.current);
@@ -262,18 +310,35 @@ function AudioStep({
   const startMicTest = useCallback(async () => {
     stopMicTest();
     try {
-      const constraints: MediaStreamConstraints = {
-        audio: deviceId ? { deviceId: { exact: deviceId } } : true
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream: MediaStream;
+      if (source === "system") {
+        // For system audio use getDisplayMedia so the level meter shows real
+        // audio. On macOS 13+ this opens the native screen-capture dialog;
+        // on older macOS it falls back in the real capture path but the test
+        // still shows whatever the OS returns.
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          audio: true,
+          video: true
+        });
+        // Stop video tracks — we only need audio for the level meter.
+        for (const track of stream.getVideoTracks()) {
+          track.stop();
+          stream.removeTrack(track);
+        }
+      } else {
+        const constraints: MediaStreamConstraints = {
+          audio: deviceId ? { deviceId: { exact: deviceId } } : true
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
       streamRef.current = stream;
       setTesting(true);
 
       const ctx = new AudioContext();
-      const source = ctx.createMediaStreamSource(stream);
+      const audioSource = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
-      source.connect(analyser);
+      audioSource.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
 
       const tick = () => {
@@ -286,9 +351,16 @@ function AudioStep({
     } catch {
       setTesting(false);
     }
-  }, [deviceId, stopMicTest]);
+  }, [deviceId, source, stopMicTest]);
 
   useEffect(() => stopMicTest, [stopMicTest]);
+
+  const testLabel =
+    testing ? "Остановить" : source === "system" ? "Проверить уровень" : "Проверить микрофон";
+
+  const openUrl = (url: string) => {
+    void window.desktopAPI?.openExternal(url);
+  };
 
   return (
     <div>
@@ -356,40 +428,102 @@ function AudioStep({
         </label>
       )}
 
-      {source === "microphone" && (
-        <div className="mt-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={testing ? stopMicTest : startMicTest}
-              className={cn(
-                "rounded-md border px-3 py-1.5 text-xs",
-                testing
-                  ? "border-red-300 text-red-700 hover:bg-red-50"
-                  : "border-line text-ink-600 hover:bg-ink-900/5"
-              )}
-            >
-              {testing ? "Остановить" : "Проверить микрофон"}
-            </button>
-            {testing && (
-              <div className="flex flex-1 items-center gap-0.5">
-                {Array.from({ length: 12 }).map((_, i) => {
-                  const threshold = (i + 1) / 12;
-                  return (
-                    <span
-                      key={i}
-                      className={cn(
-                        "h-2 flex-1 rounded transition-colors",
-                        micLevel >= threshold ? "bg-accent-500" : "bg-ink-900/10"
-                      )}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
+      {source === "system" && platform === "darwin" && macVirtualDevice && devices.length > 0 && (
+        <label className="mt-4 block">
+          <span className="text-xs text-ink-500">Виртуальное аудиоустройство</span>
+          <select
+            value={deviceId || macVirtualDevice.deviceId}
+            onChange={(e) => {
+              onDeviceChange(e.target.value);
+              stopMicTest();
+            }}
+            className="mt-1 w-full rounded-md border border-line bg-surface-900 px-3 py-2 text-sm text-ink-900 outline-none focus:border-accent-500/60"
+          >
+            {devices.map((d, i) => (
+              <option key={d.deviceId || i} value={d.deviceId}>
+                {d.label || `Устройство ${i + 1}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {source === "system" && platform === "darwin" && !macVirtualDevice && (
+        <div className="mt-4 space-y-2 rounded-md border border-line bg-surface-900 p-3">
+          <p className="text-xs text-ink-500">
+            Для захвата системного звука на этой версии macOS требуется виртуальное
+            аудиоустройство. Установите одно из:
+          </p>
+          <ul className="list-disc pl-4 space-y-1">
+            {KNOWN_VIRTUAL_DEVICES.map((name) => (
+              <li key={name} className="text-xs">
+                <button
+                  type="button"
+                  className="text-accent-500 underline hover:text-accent-400"
+                  onClick={() => openUrl(getDeviceInstallUrl(name))}
+                >
+                  {name}
+                  <ExternalLink className="ml-1 inline h-3 w-3" />
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
+
+      {source === "system" &&
+        platform === "darwin" &&
+        macVirtualDevice &&
+        !macMultiOutputExists && (
+          <div className="mt-4 flex items-start gap-2 text-xs text-ink-500">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Чтобы слышать звук при захвате, создайте Multi-Output Device в{" "}
+              <button
+                type="button"
+                className="text-accent-500 underline hover:text-accent-400"
+                onClick={() => openUrl(MULTI_OUTPUT_HELP_URL)}
+              >
+                Audio MIDI Setup
+                <ExternalLink className="ml-1 inline h-3 w-3" />
+              </button>
+            </span>
+          </div>
+        )}
+
+      {/* Level-meter test — available for both microphone and system sources. */}
+      <div className="mt-4">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={testing ? stopMicTest : startMicTest}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-xs",
+              testing
+                ? "border-red-300 text-red-700 hover:bg-red-50"
+                : "border-line text-ink-600 hover:bg-ink-900/5"
+            )}
+          >
+            {testLabel}
+          </button>
+          {testing && (
+            <div className="flex flex-1 items-center gap-0.5">
+              {Array.from({ length: 12 }).map((_, i) => {
+                const threshold = (i + 1) / 12;
+                return (
+                  <span
+                    key={i}
+                    className={cn(
+                      "h-2 flex-1 rounded transition-colors",
+                      micLevel >= threshold ? "bg-accent-500" : "bg-ink-900/10"
+                    )}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="mt-6 flex justify-between">
         <button
