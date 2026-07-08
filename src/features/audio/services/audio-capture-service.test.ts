@@ -55,40 +55,57 @@ function mockStream(tracks: MediaStreamTrack[]): MediaStream {
 }
 
 // Stub AudioContext / AudioWorklet so the service constructor path doesn't crash.
-const FakeAudioContext = vi.fn().mockImplementation(() => ({
-  audioWorklet: {
-    addModule: vi.fn().mockResolvedValue(undefined)
-  },
-  createMediaStreamSource: vi.fn().mockReturnValue({
-    connect: vi.fn()
-  }),
-  createGain: vi.fn().mockReturnValue({
+function createMockAudioContext() {
+  return {
+    audioWorklet: {
+      addModule: vi.fn().mockResolvedValue(undefined)
+    },
+    createMediaStreamSource: vi.fn().mockReturnValue({
+      connect: vi.fn()
+    }),
+    createGain: vi.fn().mockReturnValue({
+      connect: vi.fn(),
+      gain: { value: 0 }
+    }),
+    destination: {},
+    state: "running",
+    close: vi.fn().mockResolvedValue(undefined),
+    sampleRate: 48000
+  };
+}
+
+function createMockAudioWorkletNode() {
+  return {
+    port: {
+      onmessage: null,
+      close: vi.fn()
+    },
     connect: vi.fn(),
-    gain: { value: 0 }
-  }),
-  destination: {},
-  state: "running",
-  close: vi.fn().mockResolvedValue(undefined),
-  sampleRate: 48000
-}));
+    disconnect: vi.fn()
+  };
+}
+
+const FakeAudioContext = vi.fn().mockImplementation(createMockAudioContext);
+const FakeAudioWorkletNode = vi.fn().mockImplementation(createMockAudioWorkletNode);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).AudioContext = FakeAudioContext;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).AudioWorkletNode = vi.fn().mockImplementation(() => ({
-  port: {
-    onmessage: null,
-    close: vi.fn()
-  },
-  connect: vi.fn(),
-  disconnect: vi.fn()
-}));
+(window as any).AudioContext = FakeAudioContext;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(globalThis as any).AudioWorkletNode = FakeAudioWorkletNode;
+
+function resetAudioApiMocks() {
+  FakeAudioContext.mockImplementation(createMockAudioContext);
+  FakeAudioWorkletNode.mockImplementation(createMockAudioWorkletNode);
+}
 
 // Stub window.desktopAPI before tests (jsdom doesn't have it).
 function setDesktopApiPlatform(platform: NodeJS.Platform) {
   Object.defineProperty(window, "desktopAPI", {
     value: {
-      getPlatform: () => Promise.resolve(platform)
+      getPlatform: () => Promise.resolve(platform),
+      requestMediaAccess: vi.fn().mockResolvedValue(true)
     },
     configurable: true,
     writable: true
@@ -132,6 +149,67 @@ function stubEnumerateDevices(fn: (...args: unknown[]) => unknown) {
     writable: true
   });
 }
+
+describe("AudioCaptureService — microphone permissions", () => {
+  let service: AudioCaptureService;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetAudioApiMocks();
+    service = new AudioCaptureService();
+    setDesktopApiPlatform("darwin");
+  });
+
+  it("asks the Electron main process for microphone access before getUserMedia", async () => {
+    const audioTrack = mockTrack("audio");
+    const stream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    stubGetUserMedia(getUserMedia);
+
+    await service.start(
+      {
+        onChunk: vi.fn(),
+        onLevel: vi.fn()
+      },
+      "microphone"
+    );
+
+    expect(window.desktopAPI?.requestMediaAccess).toHaveBeenCalledWith("microphone");
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+  });
+
+  it("shows a specific microphone permission error when macOS denies access", async () => {
+    Object.defineProperty(window, "desktopAPI", {
+      value: {
+        getPlatform: () => Promise.resolve("darwin"),
+        requestMediaAccess: vi.fn().mockResolvedValue(false)
+      },
+      configurable: true,
+      writable: true
+    });
+    const getUserMedia = vi.fn();
+    stubGetUserMedia(getUserMedia);
+
+    await expect(
+      service.start(
+        {
+          onChunk: vi.fn(),
+          onLevel: vi.fn()
+        },
+        "microphone"
+      )
+    ).rejects.toThrow("Нет доступа к микрофону");
+
+    expect(getUserMedia).not.toHaveBeenCalled();
+  });
+});
 
 describe("AudioCaptureService — captureSystemAudio (Windows)", () => {
   let service: AudioCaptureService;

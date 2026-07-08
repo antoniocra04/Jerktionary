@@ -28,6 +28,12 @@ export class AudioCaptureService {
       throw new Error("AudioContext не поддерживается");
     }
 
+    // In packaged Electron builds, macOS TCC grants are tied to the app bundle.
+    // Ask through the main process before Chromium's getUserMedia path runs.
+    if (source === "microphone") {
+      await this.ensureMicrophoneAccess();
+    }
+
     // For system audio on macOS, trigger native screen-recording permission
     // dialog (getDisplayMedia shows its own picker, but TCC must be granted first).
     if (source === "system") {
@@ -95,6 +101,15 @@ export class AudioCaptureService {
         autoGainControl: true
       }
     });
+  }
+
+  private async ensureMicrophoneAccess(): Promise<void> {
+    const allowed = await window.desktopAPI?.requestMediaAccess("microphone");
+    if (allowed === false) {
+      throw new Error(
+        "Нет доступа к микрофону. Проверьте System Settings → Privacy & Security → Microphone для Jerktionary и перезапустите приложение."
+      );
+    }
   }
 
   private async captureSystemAudio(): Promise<MediaStream> {

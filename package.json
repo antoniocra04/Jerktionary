@@ -1,6 +1,6 @@
 {
   "name": "jerktionary-desktop",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Electron desktop frontend for realtime speech transcription, term extraction, and interview-style answers.",
   "license": "MIT",
   "author": "antoniocra04",
@@ -32,6 +32,8 @@
     "build:win": "npm run build && electron-builder --win",
     "build:linux": "npm run build && electron-builder --linux",
     "build:mac": "npm run build && electron-builder --mac",
+    "build:mac:local": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir && npm run sign:mac:adhoc",
+    "sign:mac:adhoc": "codesign --force --deep --sign - --entitlements build/entitlements.mac.plist release/mac-arm64/Jerktionary.app",
     "preview": "electron-vite -c electron.vite.config.ts preview",
     "test": "vitest run -c vitest.config.ts",
     "test:watch": "vitest -c vitest.config.ts",

@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -11,6 +13,7 @@ permissions:
 
 jobs:
   package:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release:')
     name: Package ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -44,9 +47,38 @@ jobs:
         run: npm run build
 
       - name: Package app
+        if: matrix.platform != 'macos'
         run: npx electron-builder ${{ matrix.builder_args }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Package macOS app directory
+        if: matrix.platform == 'macos'
+        run: npx electron-builder --mac dir --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Sign macOS app
+        if: matrix.platform == 'macos'
+        run: codesign --force --deep --sign - --entitlements build/entitlements.mac.plist release/mac-arm64/Jerktionary.app
+
+      - name: Archive macOS app
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          APP_VERSION="$(node -p "require('./package.json').version")"
+          ditto -c -k --sequesterRsrc --keepParent release/mac-arm64/Jerktionary.app "release/Jerktionary-${APP_VERSION}-mac-arm64.zip"
+          hdiutil create -volname "Jerktionary" -srcfolder release/mac-arm64/Jerktionary.app -ov -format UDZO "release/Jerktionary-${APP_VERSION}-mac-arm64.dmg"
+
+      - name: Resolve release tag
+        id: release_tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "tag=v$(node -p "require('./package.json').version")" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -60,11 +92,13 @@ jobs:
             release/*.zip
 
       - name: Attach files to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'release:')
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           overwrite_files: true
           files: |
