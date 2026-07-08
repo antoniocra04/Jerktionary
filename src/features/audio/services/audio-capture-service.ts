@@ -1,4 +1,5 @@
 import { calculateRmsLevel, convertFloat32ToPcm16LE } from "./pcm-converter";
+import { detectVirtualAudioDevice, KNOWN_VIRTUAL_DEVICES } from "./mac-audio-utils";
 import type { AudioSource } from "@/features/settings/store/settings-store";
 
 export type AudioCaptureCallbacks = {
@@ -73,29 +74,70 @@ export class AudioCaptureService {
 
   private async captureSystemAudio(): Promise<MediaStream> {
     const platform = await window.desktopAPI?.getPlatform();
-    if (platform && platform !== "win32") {
-      throw new Error("Захват системного звука сейчас поддерживается только на Windows");
-    }
 
     if (!navigator.mediaDevices.getDisplayMedia) {
       throw new Error("Browser API для захвата системного звука недоступен");
     }
 
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      audio: true,
-      video: true
+    // Primary path: getDisplayMedia.
+    //   Windows  → Electron's custom handler injects `audio: "loopback"`.
+    //   macOS 13+ → no handler → Electron defaults to ScreenCaptureKit, which
+    //                includes system audio in the native OS picker.
+    //   macOS <13 → the dialog may appear but audio is not included; we fall
+    //                through to virtual-device capture on error.
+    //   Linux     → no system-audio handler; getDisplayMedia will fail.
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: true,
+        video: true
+      });
+
+      for (const track of stream.getVideoTracks()) {
+        track.stop();
+        stream.removeTrack(track);
+      }
+
+      if (stream.getAudioTracks().length === 0) {
+        throw new Error("Не удалось получить системный звук");
+      }
+
+      return stream;
+    } catch (err) {
+      // On macOS, if the native getDisplayMedia fails (e.g. macOS < 13 without
+      // ScreenCaptureKit), fall through to virtual-device capture.
+      if (platform === "darwin" && isUserDeniedOrUnavailable(err)) {
+        return this.captureViaVirtualAudioDevice();
+      }
+      throw err;
+    }
+  }
+
+  private async captureViaVirtualAudioDevice(): Promise<MediaStream> {
+    const device = await detectVirtualAudioDevice();
+    if (!device) {
+      const names = KNOWN_VIRTUAL_DEVICES.join(", ");
+      throw new Error(
+        `Не найден виртуальный аудиоустройство (${names}). ` +
+          `Установите один из них: ` +
+          `BlackHole — https://existential.audio/blackhole, ` +
+          `Soundflower — https://github.com/mattingalls/Soundflower, ` +
+          `Loopback — https://rogueamoeba.com/loopback`
+      );
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Браузерный API микрофона недоступен");
+    }
+
+    return navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: device.deviceId },
+        channelCount: 1,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false
+      }
     });
-
-    for (const track of stream.getVideoTracks()) {
-      track.stop();
-      stream.removeTrack(track);
-    }
-
-    if (stream.getAudioTracks().length === 0) {
-      throw new Error("Не удалось получить системный звук");
-    }
-
-    return stream;
   }
 
   async stop(): Promise<void> {
@@ -118,4 +160,18 @@ export class AudioCaptureService {
     this.sourceNode = null;
     this.monitorGain = null;
   }
+}
+
+/**
+ * Returns `true` when the error indicates the user dismissed the OS
+ * screen-capture dialog (NotAllowedError) or the platform lacks native
+ * system-audio capture (NotFoundError). These are expected on macOS < 13
+ * where ScreenCaptureKit is unavailable — we fall through to virtual-device
+ * capture instead of surfacing the error to the user.
+ */
+function isUserDeniedOrUnavailable(err: unknown): boolean {
+  if (err instanceof DOMException) {
+    return err.name === "NotAllowedError" || err.name === "NotFoundError";
+  }
+  return false;
 }
