@@ -106,9 +106,10 @@ app.whenReady().then(async () => {
   });
 
   // The custom display-media handler is only needed on Windows for
-  // `audio: "loopback"` system-audio capture. On macOS 13+ Electron uses
-  // ScreenCaptureKit natively when no handler is registered; on Linux there is
-  // no system-audio path yet.
+  // `audio: "loopback"` system-audio capture (loopback audio is
+  // Windows-only in Electron 31). On macOS no handler is registered, so
+  // getDisplayMedia rejects and the renderer falls back to virtual-device
+  // (BlackHole) capture; on Linux monitor sources are used instead.
   if (process.platform === "win32") {
     session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
       const sources = await desktopCapturer.getSources({ types: ["screen"] });

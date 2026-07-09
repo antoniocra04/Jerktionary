@@ -187,7 +187,9 @@ describe("AudioCaptureService — microphone permissions", () => {
 
     expect(window.desktopAPI?.requestMediaAccess).toHaveBeenCalledWith("microphone");
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: {}
+      audio: {
+        deviceId: { ideal: "built-in" }
+      }
     });
   });
 
@@ -278,6 +280,46 @@ describe("AudioCaptureService — microphone permissions", () => {
     ).rejects.toThrow("Физический микрофон не найден");
 
     expect(getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("does not use a saved virtual input in microphone mode", async () => {
+    const audioTrack = mockTrack("audio");
+    const stream = mockStream([audioTrack]);
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    stubGetUserMedia(getUserMedia);
+    stubEnumerateDevices(
+      vi.fn().mockResolvedValue([
+        {
+          deviceId: "blackhole",
+          kind: "audioinput",
+          label: "BlackHole 2ch (Virtual)",
+          groupId: "group-blackhole",
+          toJSON: () => ({})
+        },
+        {
+          deviceId: "built-in",
+          kind: "audioinput",
+          label: "MacBook Pro Microphone",
+          groupId: "group-built-in",
+          toJSON: () => ({})
+        }
+      ])
+    );
+
+    await service.start(
+      {
+        onChunk: vi.fn(),
+        onLevel: vi.fn()
+      },
+      "microphone",
+      "blackhole"
+    );
+
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        deviceId: { ideal: "built-in" }
+      }
+    });
   });
 });
 

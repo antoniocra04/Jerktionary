@@ -111,6 +111,7 @@ npm run build        # Build Electron/Vite output
 npm run build:win    # Package Windows build
 npm run build:linux  # Package Linux build
 npm run build:mac    # Package macOS build
+npm run build:mac:local # Package and ad-hoc sign a local macOS app
 ```
 
 Build artifacts are written to `release/`. macOS packaging should be run on macOS when signing or notarization is required.
@@ -123,6 +124,22 @@ Build artifacts are written to `release/`. macOS packaging should be run on macO
 4. Click the microphone button.
 5. Grant microphone access.
 6. The level meter should react while audio chunks stream to the WebSocket.
+
+## macOS System Audio with BlackHole
+
+Jerktionary captures macOS system audio through a virtual input such as BlackHole. The app can open BlackHole, but macOS must also route output into it. If the output stays on speakers/headphones only, capture starts but the level remains zero.
+
+1. Install `BlackHole 2ch`.
+2. Open `Audio MIDI Setup` (`Applications` -> `Utilities` -> `Audio MIDI Setup`).
+3. Click `+` in the bottom-left corner and choose `Create Multi-Output Device`.
+4. In the new device, enable your real output device, for example headphones or speakers.
+5. Enable `BlackHole 2ch` in the same Multi-Output Device.
+6. If audio crackles or drifts, enable `Drift Correction` for `BlackHole 2ch`.
+7. Open `System Settings` -> `Sound` -> `Output`.
+8. Select the new `Multi-Output Device`.
+9. In Jerktionary settings, set the audio source to system audio and choose `BlackHole 2ch` if it is not selected automatically.
+
+macOS may disable keyboard volume control while a Multi-Output Device is selected. Change volume in the source app, monitor, headphones, or Audio MIDI Setup.
 
 ## Backend Contract
 

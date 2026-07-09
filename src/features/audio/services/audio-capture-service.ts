@@ -1,5 +1,10 @@
 import { calculateRmsLevel, convertFloat32ToPcm16LE } from "./pcm-converter";
 import { detectVirtualAudioDevice, KNOWN_VIRTUAL_DEVICES } from "./mac-audio-utils";
+// "?worker&url" makes Vite compile the worklet as a standalone JS chunk and
+// return its URL. A plain `new URL("./x.ts", import.meta.url)` gets inlined
+// into the production bundle as a raw-TypeScript data: URL (MIME video/mp2t),
+// which addModule rejects with "AbortError: The user aborted a request."
+import workletUrl from "./audio-worklet-processor?worker&url";
 import type { AudioSource } from "@/features/settings/store/settings-store";
 
 export type AudioCaptureCallbacks = {
@@ -66,9 +71,7 @@ export class AudioCaptureService {
 
     try {
       this.context = new AudioContextCtor();
-      await this.context.audioWorklet.addModule(
-        new URL("./audio-worklet-processor.ts", import.meta.url)
-      );
+      await this.context.audioWorklet.addModule(workletUrl);
 
       this.sourceNode = this.context.createMediaStreamSource(this.stream);
       this.workletNode = new AudioWorkletNode(this.context, "jerktionary-audio-processor", {
@@ -95,14 +98,14 @@ export class AudioCaptureService {
   }
 
   private async captureMicrophone(inputDeviceId: string): Promise<MediaStream> {
-    await this.ensurePhysicalMicrophoneAvailable(inputDeviceId);
+    const effectiveDeviceId = await this.resolveMicrophoneInputDeviceId(inputDeviceId);
 
     try {
       return await navigator.mediaDevices.getUserMedia({
-        audio: this.microphoneConstraints(inputDeviceId)
+        audio: this.microphoneConstraints(effectiveDeviceId)
       });
     } catch (err) {
-      if (inputDeviceId && shouldRetryWithDefaultMicrophone(err)) {
+      if (effectiveDeviceId && shouldRetryWithDefaultMicrophone(err)) {
         return navigator.mediaDevices.getUserMedia({
           audio: true
         });
@@ -130,16 +133,24 @@ export class AudioCaptureService {
     };
   }
 
-  private async ensurePhysicalMicrophoneAvailable(inputDeviceId: string): Promise<void> {
+  private async resolveMicrophoneInputDeviceId(inputDeviceId: string): Promise<string> {
     const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
     const audioInputs = devices.filter((device) => device.kind === "audioinput");
-    if (audioInputs.length === 0 || inputDeviceId) {
-      return;
+    if (audioInputs.length === 0) {
+      return inputDeviceId;
     }
 
     const realInputs = audioInputs.filter((device) => !isVirtualAudioInput(device));
+    const selectedInput = inputDeviceId
+      ? audioInputs.find((device) => device.deviceId === inputDeviceId)
+      : null;
+
+    if (selectedInput && !isVirtualAudioInput(selectedInput)) {
+      return inputDeviceId;
+    }
+
     if (realInputs.length > 0) {
-      return;
+      return realInputs[0].deviceId;
     }
 
     const labels = audioInputs
@@ -206,11 +217,10 @@ export class AudioCaptureService {
     }
 
     // Primary path: getDisplayMedia (Windows + macOS only; Linux handled above).
-    //   Windows  → Electron's custom handler injects `audio: "loopback"`.
-    //   macOS 13+ → no handler → Electron defaults to ScreenCaptureKit, which
-    //                includes system audio in the native OS picker.
-    //   macOS <13 → the dialog may appear but audio is not included; we fall
-    //                through to virtual-device capture on error.
+    //   Windows → Electron's custom handler injects `audio: "loopback"`.
+    //   macOS   → no display-media handler is registered, so getDisplayMedia
+    //             rejects (NotSupportedError on Electron 31) and we fall
+    //             through to virtual-device (BlackHole) capture below.
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         audio: true,
