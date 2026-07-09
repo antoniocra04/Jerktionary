@@ -39,6 +39,10 @@ function readAudioSource(): AudioSource {
   return value === "system" ? "system" : "microphone";
 }
 
+function normalizeAudioInputDeviceId(deviceId: string): string {
+  return deviceId === "default" ? "" : deviceId;
+}
+
 function writeSetting(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
@@ -72,7 +76,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   displayName: readInitial(NAME_KEY, DEFAULT_DISPLAY_NAME),
   aboutMe: readInitial(ABOUT_ME_KEY, ""),
   audioSource: readAudioSource(),
-  audioInputDeviceId: readInitial(AUDIO_INPUT_DEVICE_KEY, ""),
+  audioInputDeviceId: normalizeAudioInputDeviceId(readInitial(AUDIO_INPUT_DEVICE_KEY, "")),
   theme: normalizeTheme(readInitial(THEME_KEY, "light")),
   hasCompletedSetup: readInitial(SETUP_COMPLETED_KEY, "false") === "true",
   setBackendHttpUrl: (url) => {
@@ -95,8 +99,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ audioSource });
   },
   setAudioInputDeviceId: (audioInputDeviceId) => {
-    writeSetting(AUDIO_INPUT_DEVICE_KEY, audioInputDeviceId);
-    set({ audioInputDeviceId });
+    const normalized = normalizeAudioInputDeviceId(audioInputDeviceId);
+    writeSetting(AUDIO_INPUT_DEVICE_KEY, normalized);
+    set({ audioInputDeviceId: normalized });
   },
   setTheme: (theme) => {
     writeSetting(THEME_KEY, theme);

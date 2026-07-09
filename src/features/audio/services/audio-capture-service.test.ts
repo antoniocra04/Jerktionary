@@ -165,6 +165,17 @@ describe("AudioCaptureService — microphone permissions", () => {
     const stream = mockStream([audioTrack]);
     const getUserMedia = vi.fn().mockResolvedValue(stream);
     stubGetUserMedia(getUserMedia);
+    stubEnumerateDevices(
+      vi.fn().mockResolvedValue([
+        {
+          deviceId: "built-in",
+          kind: "audioinput",
+          label: "MacBook Pro Microphone",
+          groupId: "group-built-in",
+          toJSON: () => ({})
+        }
+      ])
+    );
 
     await service.start(
       {
@@ -176,12 +187,7 @@ describe("AudioCaptureService — microphone permissions", () => {
 
     expect(window.desktopAPI?.requestMediaAccess).toHaveBeenCalledWith("microphone");
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
+      audio: {}
     });
   });
 
@@ -206,6 +212,70 @@ describe("AudioCaptureService — microphone permissions", () => {
         "microphone"
       )
     ).rejects.toThrow("Нет доступа к микрофону");
+
+    expect(getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("retries the default microphone when a saved input device aborts", async () => {
+    const audioTrack = mockTrack("audio");
+    const stream = mockStream([audioTrack]);
+    const getUserMedia = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException("Device failed", "AbortError"))
+      .mockResolvedValueOnce(stream);
+    stubGetUserMedia(getUserMedia);
+    stubEnumerateDevices(vi.fn().mockResolvedValue([]));
+
+    await service.start(
+      {
+        onChunk: vi.fn(),
+        onLevel: vi.fn()
+      },
+      "microphone",
+      "stale-device-id"
+    );
+
+    expect(getUserMedia).toHaveBeenNthCalledWith(1, {
+      audio: {
+        deviceId: { ideal: "stale-device-id" }
+      }
+    });
+    expect(getUserMedia).toHaveBeenNthCalledWith(2, {
+      audio: true
+    });
+  });
+
+  it("shows a specific error when only virtual inputs are available for microphone mode", async () => {
+    const getUserMedia = vi.fn();
+    stubGetUserMedia(getUserMedia);
+    stubEnumerateDevices(
+      vi.fn().mockResolvedValue([
+        {
+          deviceId: "blackhole",
+          kind: "audioinput",
+          label: "BlackHole 2ch (Virtual)",
+          groupId: "group-blackhole",
+          toJSON: () => ({})
+        },
+        {
+          deviceId: "teams",
+          kind: "audioinput",
+          label: "Microsoft Teams Audio Device (Virtual)",
+          groupId: "group-teams",
+          toJSON: () => ({})
+        }
+      ])
+    );
+
+    await expect(
+      service.start(
+        {
+          onChunk: vi.fn(),
+          onLevel: vi.fn()
+        },
+        "microphone"
+      )
+    ).rejects.toThrow("Физический микрофон не найден");
 
     expect(getUserMedia).not.toHaveBeenCalled();
   });
@@ -284,13 +354,9 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     expect(result).toBeDefined();
     expect(detectVirtualAudioDevice).toHaveBeenCalled();
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: expect.objectContaining({
-        deviceId: { exact: "bh-1" },
-        channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false
-      })
+      audio: {
+        deviceId: { exact: "bh-1" }
+      }
     });
   });
 
@@ -345,13 +411,9 @@ describe("AudioCaptureService — captureSystemAudio (macOS native)", () => {
     expect(detectVirtualAudioDevice).toHaveBeenCalled();
     expect(getUserMedia).toHaveBeenCalledWith(
       expect.objectContaining({
-        audio: expect.objectContaining({
-          deviceId: { exact: "bh-1" },
-          channelCount: 1,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        })
+        audio: {
+          deviceId: { exact: "bh-1" }
+        }
       })
     );
   });
@@ -467,13 +529,9 @@ describe("AudioCaptureService — captureSystemAudio (Linux monitor sources)", (
     // Should use getUserMedia with the monitor device, not getDisplayMedia.
     expect(getDisplayMedia).not.toHaveBeenCalled();
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: expect.objectContaining({
-        deviceId: { exact: monitorDevice.deviceId },
-        channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false
-      })
+      audio: {
+        deviceId: { exact: monitorDevice.deviceId }
+      }
     });
   });
 
@@ -500,12 +558,7 @@ describe("AudioCaptureService — captureSystemAudio (Linux monitor sources)", (
 
     // Should fall back to default microphone (no deviceId constraint).
     expect(getUserMedia).toHaveBeenCalledWith({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
+      audio: true
     });
   });
 });

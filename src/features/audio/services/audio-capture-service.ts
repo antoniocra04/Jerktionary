@@ -56,7 +56,7 @@ export class AudioCaptureService {
           await new Promise((r) => setTimeout(r, 1000));
           continue;
         }
-        throw err;
+        throw await this.withAudioDiagnostics(err, source, inputDeviceId);
       }
     }
 
@@ -64,43 +64,51 @@ export class AudioCaptureService {
       throw new Error("Не удалось получить аудиопоток");
     }
 
-    this.context = new AudioContextCtor();
-    await this.context.audioWorklet.addModule(
-      new URL("./audio-worklet-processor.ts", import.meta.url)
-    );
+    try {
+      this.context = new AudioContextCtor();
+      await this.context.audioWorklet.addModule(
+        new URL("./audio-worklet-processor.ts", import.meta.url)
+      );
 
-    this.sourceNode = this.context.createMediaStreamSource(this.stream);
-    this.workletNode = new AudioWorkletNode(this.context, "jerktionary-audio-processor", {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [1]
-    });
-    this.monitorGain = this.context.createGain();
-    this.monitorGain.gain.value = 0;
+      this.sourceNode = this.context.createMediaStreamSource(this.stream);
+      this.workletNode = new AudioWorkletNode(this.context, "jerktionary-audio-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1]
+      });
+      this.monitorGain = this.context.createGain();
+      this.monitorGain.gain.value = 0;
 
-    this.workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
-      const samples = event.data;
-      callbacks.onLevel(calculateRmsLevel(samples));
-      callbacks.onChunk(convertFloat32ToPcm16LE(samples, this.context?.sampleRate ?? 48_000));
-    };
+      this.workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
+        const samples = event.data;
+        callbacks.onLevel(calculateRmsLevel(samples));
+        callbacks.onChunk(convertFloat32ToPcm16LE(samples, this.context?.sampleRate ?? 48_000));
+      };
 
-    this.sourceNode.connect(this.workletNode);
-    this.workletNode.connect(this.monitorGain);
-    this.monitorGain.connect(this.context.destination);
+      this.sourceNode.connect(this.workletNode);
+      this.workletNode.connect(this.monitorGain);
+      this.monitorGain.connect(this.context.destination);
+    } catch (err) {
+      await this.stop();
+      throw await this.withAudioDiagnostics(err, source, inputDeviceId);
+    }
   }
 
   private async captureMicrophone(inputDeviceId: string): Promise<MediaStream> {
-    return navigator.mediaDevices.getUserMedia({
-      audio: {
-        // "ideal" (not "exact") so a stale saved deviceId (unplugged mic) falls
-        // back to the system default instead of failing the whole capture.
-        ...(inputDeviceId ? { deviceId: { ideal: inputDeviceId } } : {}),
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
+    await this.ensurePhysicalMicrophoneAvailable(inputDeviceId);
+
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: this.microphoneConstraints(inputDeviceId)
+      });
+    } catch (err) {
+      if (inputDeviceId && shouldRetryWithDefaultMicrophone(err)) {
+        return navigator.mediaDevices.getUserMedia({
+          audio: true
+        });
       }
-    });
+      throw err;
+    }
   }
 
   private async ensureMicrophoneAccess(): Promise<void> {
@@ -110,6 +118,78 @@ export class AudioCaptureService {
         "Нет доступа к микрофону. Проверьте System Settings → Privacy & Security → Microphone для Jerktionary и перезапустите приложение."
       );
     }
+  }
+
+  private microphoneConstraints(inputDeviceId: string): MediaTrackConstraints {
+    return {
+      // "ideal" (not "exact") so a stale saved deviceId (unplugged mic) can
+      // fall back to the system default. Some macOS/Electron builds still abort
+      // while opening a stale preferred device, so captureMicrophone retries once
+      // with `audio: true` too.
+      ...(inputDeviceId ? { deviceId: { ideal: inputDeviceId } } : {})
+    };
+  }
+
+  private async ensurePhysicalMicrophoneAvailable(inputDeviceId: string): Promise<void> {
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    const audioInputs = devices.filter((device) => device.kind === "audioinput");
+    if (audioInputs.length === 0 || inputDeviceId) {
+      return;
+    }
+
+    const realInputs = audioInputs.filter((device) => !isVirtualAudioInput(device));
+    if (realInputs.length > 0) {
+      return;
+    }
+
+    const labels = audioInputs
+      .map((device, index) => device.label || `audioinput-${index + 1}`)
+      .join(", ");
+
+    throw new Error(
+      `Физический микрофон не найден. macOS показывает только виртуальные аудиоустройства: ${labels}. ` +
+        `Для микрофона выберите реальный Input в System Settings → Sound → Input. ` +
+        `Для системного звука выберите «Система» в настройках Jerktionary.`
+    );
+  }
+
+  private async withAudioDiagnostics(
+    err: unknown,
+    source: AudioSource,
+    inputDeviceId: string
+  ): Promise<unknown> {
+    if (!(err instanceof DOMException) && !(err instanceof Error)) {
+      return err;
+    }
+
+    const details = await this.buildAudioDiagnostics(source, inputDeviceId);
+    const name = err instanceof DOMException ? err.name : err.name || "Error";
+    const message = err.message || "unknown";
+
+    return new Error(`${name}: ${message}. ${details}`);
+  }
+
+  private async buildAudioDiagnostics(source: AudioSource, inputDeviceId: string): Promise<string> {
+    const platform = await window.desktopAPI?.getPlatform().catch(() => undefined);
+    let devices = "unknown";
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = all.filter((device) => device.kind === "audioinput");
+      devices =
+        audioInputs.length === 0
+          ? "none"
+          : audioInputs
+              .map((device, index) => {
+                const label = device.label || `audioinput-${index + 1}`;
+                const selected = inputDeviceId && device.deviceId === inputDeviceId ? "*" : "";
+                return `${selected}${label}`;
+              })
+              .join(", ");
+    } catch {
+      devices = "enumerate-failed";
+    }
+
+    return `Audio diagnostics: platform=${platform ?? "unknown"}, source=${source}, savedDevice=${inputDeviceId ? "yes" : "no"}, devices=${devices}`;
   }
 
   private async captureSystemAudio(): Promise<MediaStream> {
@@ -179,23 +259,14 @@ export class AudioCaptureService {
     if (monitorSource) {
       return navigator.mediaDevices.getUserMedia({
         audio: {
-          deviceId: { exact: monitorSource.deviceId },
-          channelCount: 1,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
+          deviceId: { exact: monitorSource.deviceId }
         }
       });
     }
 
     // No monitor source found — fall back to default microphone input.
     return navigator.mediaDevices.getUserMedia({
-      audio: {
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }
+      audio: true
     });
   }
 
@@ -219,11 +290,7 @@ export class AudioCaptureService {
 
     return navigator.mediaDevices.getUserMedia({
       audio: {
-        deviceId: { exact: device.deviceId },
-        channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false
+        deviceId: { exact: device.deviceId }
       }
     });
   }
@@ -282,4 +349,21 @@ function shouldFallbackToVirtualDevice(
   }
 
   return false;
+}
+
+function shouldRetryWithDefaultMicrophone(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === "AbortError" ||
+      err.name === "NotFoundError" ||
+      err.name === "OverconstrainedError")
+  );
+}
+
+function isVirtualAudioInput(device: MediaDeviceInfo): boolean {
+  const label = `${device.label}\n${device.groupId}`.toLowerCase();
+  return (
+    label.includes("virtual") ||
+    KNOWN_VIRTUAL_DEVICES.some((name) => label.includes(name.toLowerCase()))
+  );
 }

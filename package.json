@@ -1,6 +1,6 @@
 {
   "name": "jerktionary-desktop",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Electron desktop frontend for realtime speech transcription, term extraction, and interview-style answers.",
   "license": "MIT",
   "author": "antoniocra04",
