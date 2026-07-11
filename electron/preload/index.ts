@@ -20,6 +20,7 @@ const api: DesktopApi = {
   requestMediaAccess: (hint) => ipcRenderer.invoke("app:requestMediaAccess", hint),
   onAnswerNow: (listener) => subscribe("hotkey:answer-now", listener),
   onToggleOverlay: (listener) => subscribe("hotkey:toggle-overlay", listener),
+  onFullContextAnswer: (listener) => subscribe("hotkey:full-context-answer", listener),
   listMeetings: () => ipcRenderer.invoke("meetings:list"),
   saveMeeting: (record: MeetingRecord) => ipcRenderer.invoke("meetings:save", record),
   deleteMeeting: (id: string) => ipcRenderer.invoke("meetings:delete", id)

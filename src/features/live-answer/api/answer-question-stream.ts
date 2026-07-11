@@ -21,13 +21,18 @@ function parsePoints(raw: string): string[] {
 /**
  * Streams a spoken-style answer to a question, invoking `onSnapshot` with each
  * progressively more complete answer. Resolves with the final answer.
+ *
+ * @param truncateContext — when `true` (default), only the tail 2000 chars of
+ *   the context are sent so auto-detected questions stay cheap. Set to `false`
+ *   for explicit full-context requests (hotkey).
  */
 export async function answerQuestionStream(
   question: string,
   context: string,
   deep: boolean,
   onSnapshot: (answer: LiveAnswer, done: boolean) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  truncateContext = true
 ): Promise<LiveAnswer> {
   let response: Response;
   try {
@@ -37,7 +42,7 @@ export async function answerQuestionStream(
       body: JSON.stringify({
         question,
         // The transcript grows from the start: the relevant conversation is the tail.
-        context: context.slice(-2000),
+        context: truncateContext ? context.slice(-2000) : context,
         deep,
         profile: useSettingsStore.getState().aboutMe.slice(0, 1000),
         meeting_context: useTranscriptStore.getState().meetingContext.slice(0, 2000)
