@@ -1,13 +1,21 @@
 import { answerQuestionStream } from "./answer-question-stream";
 import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
-import { extractForcedQuestion } from "@/features/live-answer/hooks/useLiveQuestion";
+
+function lastSentence(text: string): string | null {
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (sentences.length === 0) return null;
+  return sentences[sentences.length - 1].replace(/[.…!?]+$/, "") || null;
+}
 
 export async function handleFullContextAnswer(): Promise<void> {
   const store = useTranscriptStore.getState();
   const context = store.currentText;
   if (!context) return;
 
-  const question = extractForcedQuestion(context);
+  const question = lastSentence(context);
   if (!question) return;
 
   store.beginAnswerStreaming();
