@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 /**
  * Tests for the platform gating of setDisplayMediaRequestHandler.
@@ -10,6 +10,8 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 const setHandlerSpy = vi.fn();
 const setPermissionHandlerSpy = vi.fn();
 const setPermissionCheckHandlerSpy = vi.fn();
+const globalShortcutRegisterSpy = vi.fn();
+const globalShortcutUnregisterAllSpy = vi.fn();
 const mockWindow = {
   setContentProtection: vi.fn(),
   setSkipTaskbar: vi.fn(),
@@ -74,8 +76,8 @@ vi.mock("electron", () => {
       getSources: vi.fn().mockResolvedValue([{ id: "screen:0:0" }])
     },
     globalShortcut: {
-      register: vi.fn(),
-      unregisterAll: vi.fn()
+      register: globalShortcutRegisterSpy,
+      unregisterAll: globalShortcutUnregisterAllSpy
     },
     ipcMain: {
       handle: vi.fn()
@@ -110,6 +112,9 @@ describe("setDisplayMediaRequestHandler platform gate", () => {
     setHandlerSpy.mockReset();
     setPermissionHandlerSpy.mockReset();
     setPermissionCheckHandlerSpy.mockReset();
+    globalShortcutRegisterSpy.mockReset();
+    globalShortcutUnregisterAllSpy.mockReset();
+    mockWindow.webContents.send.mockReset();
     whenReadyCb = null;
     originalPlatform = process.platform;
   });
@@ -203,5 +208,104 @@ describe("setDisplayMediaRequestHandler platform gate", () => {
     expect(checkHandler(null, "media")).toBe(true);
     expect(checkHandler(null, "geolocation")).toBe(false);
     expect(checkHandler(null, "notifications")).toBe(false);
+  });
+});
+
+describe("global shortcut: full-context-answer", () => {
+  let originalPlatform: string;
+
+  beforeEach(() => {
+    vi.resetModules();
+    globalShortcutRegisterSpy.mockReset();
+    globalShortcutUnregisterAllSpy.mockReset();
+    mockWindow.webContents.send.mockReset();
+    whenReadyCb = null;
+    originalPlatform = process.platform;
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", {
+      value: originalPlatform,
+      configurable: true
+    });
+  });
+
+  it("registers Control+Shift+Enter on Windows/Linux", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "win32",
+      configurable: true
+    });
+
+    await import("./index");
+    expect(whenReadyCb).not.toBeNull();
+    whenReadyCb!();
+
+    const calls = globalShortcutRegisterSpy.mock.calls.map(
+      (call) => call[0] as string
+    );
+    expect(calls).toContain("Control+Shift+Enter");
+  });
+
+  it("registers Command+Shift+Enter on macOS", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    await import("./index");
+    expect(whenReadyCb).not.toBeNull();
+    whenReadyCb!();
+
+    const calls = globalShortcutRegisterSpy.mock.calls.map(
+      (call) => call[0] as string
+    );
+    expect(calls).toContain("Command+Shift+Enter");
+  });
+
+  it("sends hotkey:full-context-answer IPC on activation", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "win32",
+      configurable: true
+    });
+
+    await import("./index");
+    expect(whenReadyCb).not.toBeNull();
+    whenReadyCb!();
+
+    // Find the full-context-answer register call and trigger its callback
+    const fullContextCall = globalShortcutRegisterSpy.mock.calls.find(
+      (call) => (call[0] as string) === "Control+Shift+Enter"
+    );
+    expect(fullContextCall).toBeDefined();
+
+    const handler = fullContextCall![1] as () => void;
+    handler();
+
+    expect(mockWindow.webContents.send).toHaveBeenCalledWith(
+      "hotkey:full-context-answer"
+    );
+  });
+
+  it("unregisters all shortcuts on will-quit", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "win32",
+      configurable: true
+    });
+
+    const electron = await import("electron");
+
+    await import("./index");
+
+    // The will-quit handler is registered at module top-level (outside whenReady).
+    const onMock = electron.app.on as Mock;
+    const willQuitCall = onMock.mock.calls.find(
+      (call) => call[0] === "will-quit"
+    ) as [string, () => void] | undefined;
+    expect(willQuitCall).toBeDefined();
+
+    const willQuitHandler = willQuitCall![1];
+    willQuitHandler();
+
+    expect(globalShortcutUnregisterAllSpy).toHaveBeenCalled();
   });
 });
