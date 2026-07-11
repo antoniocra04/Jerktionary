@@ -47,8 +47,7 @@ describe("handleFullContextAnswer", () => {
   });
 
   it("calls answerQuestionStream with full context using last sentence", async () => {
-    const longText = ("A".repeat(5000)) + ".";
-    // extractForcedQuestion splits on [.!?] and takes last 2 sentences
+    const longText = ("A. ".repeat(500)) + "что-то про технологии.";
     const lastSentence = "расскажи про микросервисы.";
     mockStore.currentText = longText + " " + lastSentence;
     const mockAnswer = { answer: "Это подход...", points: [], example: "" };
@@ -61,13 +60,12 @@ describe("handleFullContextAnswer", () => {
     // verify full context was sent, untruncated
     expect(mockAnswerQuestionStream).toHaveBeenCalledTimes(1);
     const callArgs = mockAnswerQuestionStream.mock.calls[0];
+    // lastSentence() returns only the last sentence, stripped of trailing punctuation
+    expect(callArgs[0]).toBe("расскажи про микросервисы");
     expect(callArgs[1]).toBe(mockStore.currentText); // full context
     expect(callArgs[5]).toBe(false); // truncateContext = false
 
-    expect(mockRecordAnswer).toHaveBeenCalledWith(
-      callArgs[0],
-      mockAnswer
-    );
+    expect(mockRecordAnswer).toHaveBeenCalledWith("расскажи про микросервисы", mockAnswer);
     expect(mockEndAnswerStreaming).toHaveBeenCalledTimes(1);
   });
 
