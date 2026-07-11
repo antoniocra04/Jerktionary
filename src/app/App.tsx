@@ -4,7 +4,7 @@ import { useBackendStatus } from "@/features/backend-status/hooks/useBackendStat
 import { useAudioStreaming } from "@/features/audio/hooks/useAudioStreaming";
 import { useExplanationPrefetch } from "@/features/term-explanation/hooks/useExplanationPrefetch";
 import { LiveAnswer } from "@/features/live-answer/components/LiveAnswer";
-import { answerQuestionStream } from "@/features/live-answer/api/answer-question-stream";
+import { handleFullContextAnswer } from "@/features/live-answer/api/full-context-answer";
 import {
   extractForcedQuestion,
   useLiveQuestion
@@ -90,20 +90,7 @@ export function App() {
     });
     const offToggleOverlay = window.desktopAPI?.onToggleOverlay(toggleOverlay);
     const offFullContextAnswer = window.desktopAPI?.onFullContextAnswer(() => {
-      const store = useTranscriptStore.getState();
-      const question = store.answeredQuestions[0];
-      if (!question) {
-        showToast("Нет активного вопроса");
-        return;
-      }
-      const context = store.currentText;
-      store.beginAnswerStreaming();
-      answerQuestionStream(question, context, false, (answer, done) => {
-        if (done) {
-          store.recordAnswer(question, answer);
-          store.endAnswerStreaming();
-        }
-      }, undefined, false);
+      void handleFullContextAnswer(() => showToast("Нет активного вопроса"));
     });
     return () => {
       offAnswerNow?.();
