@@ -1,30 +1,24 @@
 import { answerQuestionStream } from "./answer-question-stream";
 import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
+import { extractForcedQuestion } from "@/features/live-answer/hooks/useLiveQuestion";
 
-/**
- * Handler for the full-context-answer global hotkey (Ctrl+Shift+Enter).
- * Sends the entire accumulated transcript as context for the most recent question.
- * If no question exists, calls `onNoQuestion` (e.g. to show a toast).
- */
-export async function handleFullContextAnswer(
-  onNoQuestion: () => void
-): Promise<void> {
+export async function handleFullContextAnswer(): Promise<void> {
   const store = useTranscriptStore.getState();
-  const question = store.answeredQuestions[0];
-  if (!question) {
-    onNoQuestion();
-    return;
-  }
   const context = store.currentText;
+  if (!context) return;
+
+  const question = extractForcedQuestion(context);
+  if (!question) return;
+
   store.beginAnswerStreaming();
   try {
     const answer = await answerQuestionStream(
       question,
       context,
       false,
-      () => {}, // snapshots are not needed for hotkey-triggered streams
+      () => {},
       undefined,
-      false // do NOT truncate context
+      false
     );
     store.recordAnswer(question, answer);
   } catch {
