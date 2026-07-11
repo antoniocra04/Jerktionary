@@ -39,66 +39,43 @@ describe("handleFullContextAnswer", () => {
     mockStore.currentText = "";
   });
 
-  it("calls onNoQuestion when answeredQuestions is empty", async () => {
-    const onNoQuestion = vi.fn();
+  it("does nothing when currentText is empty", async () => {
+    await handleFullContextAnswer();
 
-    await handleFullContextAnswer(onNoQuestion);
-
-    expect(onNoQuestion).toHaveBeenCalledTimes(1);
-    expect(mockAnswerQuestionStream).not.toHaveBeenCalled();
     expect(mockBeginAnswerStreaming).not.toHaveBeenCalled();
+    expect(mockAnswerQuestionStream).not.toHaveBeenCalled();
   });
 
-  it("calls answerQuestionStream with full context when a question exists", async () => {
-    const question = "Что такое микросервис?";
-    const longText = "A".repeat(5000); // 5000 chars — well beyond 2000
+  it("calls answerQuestionStream with full context using last sentence", async () => {
+    const longText = ("A".repeat(5000)) + ".";
+    // extractForcedQuestion splits on [.!?] and takes last 2 sentences
+    const lastSentence = "расскажи про микросервисы.";
+    mockStore.currentText = longText + " " + lastSentence;
     const mockAnswer = { answer: "Это подход...", points: [], example: "" };
-
-    mockStore.answeredQuestions = [question];
-    mockStore.currentText = longText;
     mockAnswerQuestionStream.mockResolvedValue(mockAnswer);
 
-    const onNoQuestion = vi.fn();
+    await handleFullContextAnswer();
 
-    await handleFullContextAnswer(onNoQuestion);
-
-    expect(onNoQuestion).not.toHaveBeenCalled();
     expect(mockBeginAnswerStreaming).toHaveBeenCalledTimes(1);
 
-    // Verify answerQuestionStream was called with the FULL context, not truncated
+    // verify full context was sent, untruncated
     expect(mockAnswerQuestionStream).toHaveBeenCalledTimes(1);
     const callArgs = mockAnswerQuestionStream.mock.calls[0];
-    expect(callArgs[0]).toBe(question); // question
-    expect(callArgs[1]).toBe(longText); // context — full, NOT sliced
-    expect(callArgs[2]).toBe(false); // deep
+    expect(callArgs[1]).toBe(mockStore.currentText); // full context
     expect(callArgs[5]).toBe(false); // truncateContext = false
 
-    expect(mockRecordAnswer).toHaveBeenCalledWith(question, mockAnswer);
+    expect(mockRecordAnswer).toHaveBeenCalledWith(
+      callArgs[0],
+      mockAnswer
+    );
     expect(mockEndAnswerStreaming).toHaveBeenCalledTimes(1);
   });
 
-  it("uses the most recent question (answeredQuestions[0])", async () => {
-    const latestQuestion = "Как работает Docker?";
-    const olderQuestion = "Что такое ООП?";
-    const mockAnswer = { answer: "Docker это...", points: [], example: "" };
-
-    mockStore.answeredQuestions = [latestQuestion, olderQuestion];
-    mockStore.currentText = "some context";
-    mockAnswerQuestionStream.mockResolvedValue(mockAnswer);
-
-    await handleFullContextAnswer(vi.fn());
-
-    expect(mockAnswerQuestionStream).toHaveBeenCalledTimes(1);
-    expect(mockAnswerQuestionStream.mock.calls[0][0]).toBe(latestQuestion);
-  });
-
   it("calls endAnswerStreaming even if the API call fails", async () => {
-    mockStore.answeredQuestions = ["Вопрос?"];
-    mockStore.currentText = "something";
+    mockStore.currentText = "Как работает Docker?";
     mockAnswerQuestionStream.mockRejectedValue(new Error("API error"));
 
-    // Should resolve (error is caught internally)
-    await handleFullContextAnswer(vi.fn());
+    await handleFullContextAnswer();
 
     expect(mockEndAnswerStreaming).toHaveBeenCalledTimes(1);
     expect(mockRecordAnswer).not.toHaveBeenCalled();

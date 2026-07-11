@@ -1,5 +1,5 @@
 import { AlertTriangle, ExternalLink, Settings } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBackendStatus } from "@/features/backend-status/hooks/useBackendStatus";
 import { useAudioStreaming } from "@/features/audio/hooks/useAudioStreaming";
 import { useExplanationPrefetch } from "@/features/term-explanation/hooks/useExplanationPrefetch";
@@ -66,20 +66,11 @@ export function App() {
     });
   }, []);
 
-  // Transient toast for hotkey feedback (e.g. "Нет активного вопроса").
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = useCallback((message: string) => {
-    setToast(message);
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
-  }, []);
-
   // Global hotkeys from the main process: they work even while the call app is
   // focused. "Answer now" forces an answer to the last spoken sentence(s), the
   // escape hatch for when automatic question detection misses.
   // Ctrl+Shift+Enter sends the full accumulated transcript as context for the
-  // most recent question.
+  // last spoken sentence.
   useEffect(() => {
     const offAnswerNow = window.desktopAPI?.onAnswerNow(() => {
       const store = useTranscriptStore.getState();
@@ -90,14 +81,14 @@ export function App() {
     });
     const offToggleOverlay = window.desktopAPI?.onToggleOverlay(toggleOverlay);
     const offFullContextAnswer = window.desktopAPI?.onFullContextAnswer(() => {
-      void handleFullContextAnswer(() => showToast("Нет активного вопроса"));
+      void handleFullContextAnswer();
     });
     return () => {
       offAnswerNow?.();
       offToggleOverlay?.();
       offFullContextAnswer?.();
     };
-  }, [toggleOverlay, showToast]);
+  }, [toggleOverlay]);
 
   const handleToggleListening = async () => {
     try {
@@ -140,7 +131,6 @@ export function App() {
           listening={isListening}
           onExit={toggleOverlay}
         />
-        {toast && <ToastNotification message={toast} />}
       </>
     );
   }
@@ -190,16 +180,7 @@ export function App() {
           </div>
         )}
       </MainLayout>
-      {toast && <ToastNotification message={toast} />}
     </>
-  );
-}
-
-function ToastNotification({ message }: { message: string }) {
-  return (
-    <div className="fixed bottom-6 right-6 z-50 animate-in rounded-lg border border-line bg-surface-900 px-4 py-2.5 text-sm text-ink-900 shadow-popover">
-      {message}
-    </div>
   );
 }
 
