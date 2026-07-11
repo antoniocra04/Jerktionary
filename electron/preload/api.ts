@@ -28,6 +28,8 @@ export type DesktopApi = {
   onAnswerNow: (listener: () => void) => () => void;
   /** Subscribe to the global overlay-toggle hotkey; returns an unsubscribe. */
   onToggleOverlay: (listener: () => void) => () => void;
+  /** Subscribe to the global full-context answer hotkey; returns an unsubscribe. */
+  onFullContextAnswer: (listener: () => void) => () => void;
   listMeetings: () => Promise<MeetingRecord[]>;
   saveMeeting: (record: MeetingRecord) => Promise<void>;
   deleteMeeting: (id: string) => Promise<void>;

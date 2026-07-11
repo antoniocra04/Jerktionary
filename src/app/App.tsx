@@ -1,9 +1,10 @@
 import { AlertTriangle, ExternalLink, Settings } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBackendStatus } from "@/features/backend-status/hooks/useBackendStatus";
 import { useAudioStreaming } from "@/features/audio/hooks/useAudioStreaming";
 import { useExplanationPrefetch } from "@/features/term-explanation/hooks/useExplanationPrefetch";
 import { LiveAnswer } from "@/features/live-answer/components/LiveAnswer";
+import { answerQuestionStream } from "@/features/live-answer/api/answer-question-stream";
 import {
   extractForcedQuestion,
   useLiveQuestion
@@ -65,9 +66,20 @@ export function App() {
     });
   }, []);
 
+  // Transient toast for hotkey feedback (e.g. "Нет активного вопроса").
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+
   // Global hotkeys from the main process: they work even while the call app is
   // focused. "Answer now" forces an answer to the last spoken sentence(s), the
   // escape hatch for when automatic question detection misses.
+  // Ctrl+Shift+Enter sends the full accumulated transcript as context for the
+  // most recent question.
   useEffect(() => {
     const offAnswerNow = window.desktopAPI?.onAnswerNow(() => {
       const store = useTranscriptStore.getState();
@@ -77,11 +89,28 @@ export function App() {
       }
     });
     const offToggleOverlay = window.desktopAPI?.onToggleOverlay(toggleOverlay);
+    const offFullContextAnswer = window.desktopAPI?.onFullContextAnswer(() => {
+      const store = useTranscriptStore.getState();
+      const question = store.answeredQuestions[0];
+      if (!question) {
+        showToast("Нет активного вопроса");
+        return;
+      }
+      const context = store.currentText;
+      store.beginAnswerStreaming();
+      answerQuestionStream(question, context, false, (answer, done) => {
+        if (done) {
+          store.recordAnswer(question, answer);
+          store.endAnswerStreaming();
+        }
+      }, undefined, false);
+    });
     return () => {
       offAnswerNow?.();
       offToggleOverlay?.();
+      offFullContextAnswer?.();
     };
-  }, [toggleOverlay]);
+  }, [toggleOverlay, showToast]);
 
   const handleToggleListening = async () => {
     try {
@@ -117,59 +146,73 @@ export function App() {
 
   if (overlay) {
     return (
-      <OverlayView
-        questions={answeredQuestions}
-        context={currentText}
-        listening={isListening}
-        onExit={toggleOverlay}
-      />
+      <>
+        <OverlayView
+          questions={answeredQuestions}
+          context={currentText}
+          listening={isListening}
+          onExit={toggleOverlay}
+        />
+        {toast && <ToastNotification message={toast} />}
+      </>
     );
   }
 
   return (
-    <MainLayout
-      header={
-        <Header
-          backendReady={backendStatus.ready?.ready}
-          backendUnavailable={backendStatus.isUnavailable}
-          backendLoading={backendStatus.isLoading}
-          listening={isListening}
-          connectionStatus={connectionStatus}
-          disabled={!canListen && !isListening}
-          onToggleListening={handleToggleListening}
-          onToggleOverlay={toggleOverlay}
-          onRetryBackend={() => void backendStatus.refetch()}
-        />
-      }
-      sidebar={
-        <Sidebar
-          terms={terms}
-          events={lastEvents}
-          explanations={lastExplanations}
-          backendReady={backendStatus.ready?.ready}
-          components={backendComponents}
-        />
-      }
-    >
-      {statusMessage ? (
-        <BackendUnavailablePanel
-          message={statusMessage}
-          error={backendStatus.error instanceof Error ? backendStatus.error.message : undefined}
-          onRetry={() => void backendStatus.refetch()}
-        />
-      ) : (
-        <div className="space-y-4">
-          {(microphoneError || websocketError) && (
-            <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-              {microphoneError ?? websocketError}
-            </div>
-          )}
-          <MeetingContextField />
-          <LiveAnswer questions={answeredQuestions} context={currentText} />
-          <TranscriptView text={currentText} terms={terms} />
-        </div>
-      )}
-    </MainLayout>
+    <>
+      <MainLayout
+        header={
+          <Header
+            backendReady={backendStatus.ready?.ready}
+            backendUnavailable={backendStatus.isUnavailable}
+            backendLoading={backendStatus.isLoading}
+            listening={isListening}
+            connectionStatus={connectionStatus}
+            disabled={!canListen && !isListening}
+            onToggleListening={handleToggleListening}
+            onToggleOverlay={toggleOverlay}
+            onRetryBackend={() => void backendStatus.refetch()}
+          />
+        }
+        sidebar={
+          <Sidebar
+            terms={terms}
+            events={lastEvents}
+            explanations={lastExplanations}
+            backendReady={backendStatus.ready?.ready}
+            components={backendComponents}
+          />
+        }
+      >
+        {statusMessage ? (
+          <BackendUnavailablePanel
+            message={statusMessage}
+            error={backendStatus.error instanceof Error ? backendStatus.error.message : undefined}
+            onRetry={() => void backendStatus.refetch()}
+          />
+        ) : (
+          <div className="space-y-4">
+            {(microphoneError || websocketError) && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {microphoneError ?? websocketError}
+              </div>
+            )}
+            <MeetingContextField />
+            <LiveAnswer questions={answeredQuestions} context={currentText} />
+            <TranscriptView text={currentText} terms={terms} />
+          </div>
+        )}
+      </MainLayout>
+      {toast && <ToastNotification message={toast} />}
+    </>
+  );
+}
+
+function ToastNotification({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 animate-in rounded-lg border border-line bg-surface-900 px-4 py-2.5 text-sm text-ink-900 shadow-popover">
+      {message}
+    </div>
   );
 }
 

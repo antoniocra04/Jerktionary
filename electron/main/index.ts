@@ -130,11 +130,16 @@ app.whenReady().then(async () => {
 
   // Global so they work while a call app is focused: force-answer the last
   // spoken sentence, and flip the compact always-on-top overlay.
+  const cmdCtrl = process.platform === "darwin" ? "Command" : "Control";
+
   globalShortcut.register("Control+Shift+Space", () => {
     mainWindow?.webContents.send("hotkey:answer-now");
   });
   globalShortcut.register("Control+Shift+O", () => {
     mainWindow?.webContents.send("hotkey:toggle-overlay");
+  });
+  globalShortcut.register(`${cmdCtrl}+Shift+Enter`, () => {
+    mainWindow?.webContents.send("hotkey:full-context-answer");
   });
 
   app.on("activate", () => {
