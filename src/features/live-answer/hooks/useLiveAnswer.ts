@@ -64,10 +64,12 @@ function ensureStream(
   const store = useTranscriptStore.getState();
   store.beginAnswerStreaming();
 
+  const truncateContext = !store.popFullContext();
+
   answerQuestionStream(question, context, deep, (answer) => {
     entry.latest = answer;
     notify();
-  })
+  }, undefined, truncateContext)
     .then((final) => {
       queryClient.setQueryData(answerQueryKey(question, deep), final);
       entry.latest = final;
