@@ -1,4 +1,3 @@
-import { answerQuestionStream } from "./answer-question-stream";
 import { useTranscriptStore } from "@/features/transcript/store/transcript-store";
 
 function lastSentence(text: string): string | null {
@@ -18,20 +17,9 @@ export async function handleFullContextAnswer(): Promise<void> {
   const question = lastSentence(context);
   if (!question) return;
 
-  store.beginAnswerStreaming();
-  try {
-    const answer = await answerQuestionStream(
-      question,
-      context,
-      false,
-      () => {},
-      undefined,
-      false
-    );
-    store.recordAnswer(question, answer);
-  } catch {
-    // API errors are silently swallowed — the user will notice the missing answer.
-  } finally {
-    store.endAnswerStreaming();
-  }
+  // Push the question so AnswerCard renders with a loading indicator.
+  // The full-context flag tells useLiveAnswer to send the entire transcript
+  // instead of the default slice(-2000).
+  store.setFullContext();
+  store.pushQuestion(question);
 }

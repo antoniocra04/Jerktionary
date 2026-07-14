@@ -58,8 +58,11 @@ type TranscriptState = {
   meetingStartedAt: number | null;
   microphoneError: string | null;
   websocketError: string | null;
+  fullContextRequested: boolean;
   setTranscript: (text: string, terms: TranscriptTerm[]) => void;
   pushQuestion: (question: string) => void;
+  setFullContext: () => void;
+  popFullContext: () => boolean;
   setMeetingContext: (context: string) => void;
   recordAnswer: (question: string, answer: LiveAnswer) => void;
   beginAnswerStreaming: () => void;
@@ -76,7 +79,7 @@ type TranscriptState = {
   resetSession: () => void;
 };
 
-export const useTranscriptStore = create<TranscriptState>((set) => ({
+export const useTranscriptStore = create<TranscriptState>((set, get) => ({
   currentText: "",
   terms: [],
   connectionStatus: "disconnected",
@@ -93,7 +96,14 @@ export const useTranscriptStore = create<TranscriptState>((set) => ({
   meetingStartedAt: null,
   microphoneError: null,
   websocketError: null,
+  fullContextRequested: false,
   setTranscript: (currentText, terms) => set({ currentText, terms }),
+  setFullContext: () => set({ fullContextRequested: true }),
+  popFullContext: () => {
+    if (!get().fullContextRequested) return false;
+    set({ fullContextRequested: false });
+    return true;
+  },
   setMeetingContext: (meetingContext) => set({ meetingContext }),
   recordAnswer: (question, answer) =>
     set((state) => {
