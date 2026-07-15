@@ -13,6 +13,7 @@ const setPermissionCheckHandlerSpy = vi.fn();
 const globalShortcutRegisterSpy = vi.fn();
 const globalShortcutUnregisterAllSpy = vi.fn();
 const mockWindow = {
+  isDestroyed: vi.fn().mockReturnValue(false),
   setContentProtection: vi.fn(),
   setSkipTaskbar: vi.fn(),
   setTitle: vi.fn(),
@@ -246,7 +247,7 @@ describe("global shortcut: full-context-answer", () => {
     expect(calls).toContain("Control+Shift+Enter");
   });
 
-  it("registers Command+Shift+Enter on macOS", async () => {
+  it("registers Control+Shift+Enter on macOS too", async () => {
     Object.defineProperty(process, "platform", {
       value: "darwin",
       configurable: true
@@ -259,7 +260,28 @@ describe("global shortcut: full-context-answer", () => {
     const calls = globalShortcutRegisterSpy.mock.calls.map(
       (call) => call[0] as string
     );
-    expect(calls).toContain("Command+Shift+Enter");
+    expect(calls).toContain("Control+Shift+Enter");
+  });
+
+  it("does not send to a destroyed window", async () => {
+    Object.defineProperty(process, "platform", {
+      value: "darwin",
+      configurable: true
+    });
+
+    await import("./index");
+    expect(whenReadyCb).not.toBeNull();
+    whenReadyCb!();
+
+    mockWindow.isDestroyed.mockReturnValueOnce(true);
+
+    const answerNowCall = globalShortcutRegisterSpy.mock.calls.find(
+      (call) => (call[0] as string) === "Control+Shift+Space"
+    );
+    expect(answerNowCall).toBeDefined();
+    (answerNowCall![1] as () => void)();
+
+    expect(mockWindow.webContents.send).not.toHaveBeenCalled();
   });
 
   it("sends hotkey:full-context-answer IPC on activation", async () => {

@@ -16,6 +16,23 @@ import type { MeetingRecord } from "../preload/api";
 
 let mainWindow: BrowserWindow | null = null;
 
+// Global shortcuts and IPC can fire after the window was closed (macOS keeps
+// the app running); sending to a destroyed webContents throws
+// "TypeError: Object has been destroyed".
+function sendToMainWindow(channel: string): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel);
+  }
+}
+
+function spawnMainWindow(): void {
+  mainWindow = createMainWindow();
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+    overlayRestore = null;
+  });
+}
+
 // Bounds/minimum-size to restore when leaving the compact overlay mode.
 let overlayRestore: { bounds: Rectangle; minimumSize: [number, number] } | null = null;
 
@@ -126,25 +143,24 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  mainWindow = createMainWindow();
+  spawnMainWindow();
 
   // Global so they work while a call app is focused: force-answer the last
-  // spoken sentence, and flip the compact always-on-top overlay.
-  const cmdCtrl = process.platform === "darwin" ? "Command" : "Control";
-
+  // spoken sentence, flip the compact always-on-top overlay, and answer with
+  // full transcript context.
   globalShortcut.register("Control+Shift+Space", () => {
-    mainWindow?.webContents.send("hotkey:answer-now");
+    sendToMainWindow("hotkey:answer-now");
   });
   globalShortcut.register("Control+Shift+O", () => {
-    mainWindow?.webContents.send("hotkey:toggle-overlay");
+    sendToMainWindow("hotkey:toggle-overlay");
   });
-  globalShortcut.register(`${cmdCtrl}+Shift+Enter`, () => {
-    mainWindow?.webContents.send("hotkey:full-context-answer");
+  globalShortcut.register("Control+Shift+Enter", () => {
+    sendToMainWindow("hotkey:full-context-answer");
   });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createMainWindow();
+      spawnMainWindow();
     }
   });
 });
